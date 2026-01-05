@@ -1,0 +1,184 @@
+name: CD
+
+# Триггеры: пуш в main (или master), релиз и ручной запуск
+on:
+  push:
+    branches: [ main, master ]
+  release:
+    types: [published]
+  workflow_dispatch:
+
+env:
+  IMAGE_TAG: ${{ github.sha }}
+  BACKEND_IMAGE_NAME: ${{ github.repository_owner }}/{{ github.repository }}-backend
+  ML_IMAGE_NAME: ${{ github.repository_owner }}/{{ github.repository }}-ml
+
+permissions:
+  contents: read
+  packages: write  # требуется для push в GHCR
+  id-token: write
+
+jobs:
+  build-and-push:
+    name: Build and push Docker images
+    runs-on: ubuntu-latest
+    outputs:
+      image-tag: ${{ env.IMAGE_TAG }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v2
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      - name: Log in to GHCR (if GHCR_TOKEN set)
+        if: ${{ secrets.GHCR_TOKEN != '' }}
+        uses: docker/login-action@v2
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GHCR_TOKEN }}
+
+      - name: Log in to Docker Hub (if DOCKERHUB_TOKEN set)
+        if: ${{ secrets.DOCKERHUB_TOKEN != '' && secrets.DOCKERHUB_USERNAME != '' }}
+        uses: docker/login-action@v2
+        with:
+          registry: docker.io
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      # Build & push backend
+      - name: Build and push backend image
+        uses: docker/build-push-action@v4
+        with:
+          context: ./backend
+          file: ./backend/Dockerfile
+          push: ${{ secrets.GHCR_TOKEN != '' || secrets.DOCKERHUB_TOKEN != '' }}
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/${{ github.repository }}-backend:${{ env.IMAGE_TAG }}
+            ${{ secrets.DOCKERHUB_TOKEN != '' && format('docker.io/{0}/{1}-backend:{2}', secrets.DOCKERHUB_USERNAME, github.repository, env.IMAGE_TAG) || '' }}
+
+      # Build & push ml_service
+      - name: Build and push ml_service image
+        uses: docker/build-push-action@v4
+        with:
+          context: ./ml_service
+          file: ./ml_service/Dockerfile
+          push: ${{ secrets.GHCR_TOKEN != '' || secrets.DOCKERHUB_TOKEN != '' }}
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/${{ github.repository }}-ml:${{ env.IMAGE_TAG }}
+            ${{ secrets.DOCKERHUB_TOKEN != '' && format('docker.io/{0}/{1}-ml:{2}', secrets.DOCKERHUB_USERNAME, github.repository, env.IMAGE_TAG) || '' }}
+
+  deploy:ssh:
+    name: Deploy to VPS via SSH
+    runs-on: ubuntu-latest
+    needs: build-and-push
+    # Выполняем только если заданы необходимые секреты для SSH (простая проверка)
+    if: ${{ secrets.SSH_PRIVATE_KEY != '' && secrets.SSH_HOST != '' && secrets.SSH_USER != '' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Prepare deploy variables
+        run: |
+          echo "DEPLOY_DIR=${{ secrets.DEPLOY_DIR }}" >> $GITHUB_ENV
+          echo "COMPOSE_FILE=${{ secrets.DEPLOY_COMPOSE_FILE || 'docker-compose.yml' }}" >> $GITHUB_ENV
+          echo "IMAGE_TAG=${{ env.IMAGE_TAG }}" >> $GITHUB_ENV
+          # DOCKER_REGISTRY optional - e.g. ghcr.io/owner
+          echo "DOCKER_REGISTRY=${{ secrets.DOCKER_REGISTRY }}" >> $GITHUB_ENV
+
+      - name: Deploy on remote: pull images and restart compose
+        uses: appleboy/ssh-action@v0.1.7
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: ${{ secrets.SSH_PORT || '22' }}
+          # known_hosts optional: add fingerprint to secrets.SSH_KNOWN_HOSTS if you want host verification
+          # known_hosts: ${{ secrets.SSH_KNOWN_HOSTS }}
+          script: |
+            set -e
+            echo "Deploy dir: $DEPLOY_DIR"
+            cd "${DEPLOY_DIR}" || exit 1
+
+            # Optionally logout/stop previous containers gracefully
+            # docker-compose -f "$COMPOSE_FILE" down || true
+
+            # Pull images (support DOCKER_REGISTRY optional)
+            if [ -n "${DOCKER_REGISTRY}" ]; then
+              docker pull "${DOCKER_REGISTRY}/${{ github.repository }}-backend:${IMAGE_TAG}" || true
+              docker pull "${DOCKER_REGISTRY}/${{ github.repository }}-ml:${IMAGE_TAG}" || true
+            else
+              docker pull "ghcr.io/${{ github.repository_owner }}/${{ github.repository }}-backend:${IMAGE_TAG}" || true
+              docker pull "ghcr.io/${{ github.repository_owner }}/${{ github.repository }}-ml:${IMAGE_TAG}" || true
+            fi
+
+            # Update compose file images tags if you use image: ...:${IMAGE_TAG} placeholders in compose
+            # Option A: If compose file refers to image names with tags, do docker-compose pull & up
+            docker-compose -f "$COMPOSE_FILE" pull --ignore-pull-failures || true
+
+            # Recreate containers
+            docker-compose -f "$COMPOSE_FILE" up -d --remove-orphans --force-recreate
+
+            # Run database migrations (adjust service name if different)
+            # Example assumes service name 'web' or 'backend' defined in compose
+            if docker-compose -f "$COMPOSE_FILE" ps --services | grep -q backend; then
+              docker-compose -f "$COMPOSE_FILE" exec -T backend python manage.py migrate --noinput || true
+              docker-compose -f "$COMPOSE_FILE" exec -T backend python manage.py collectstatic --noinput || true
+            elif docker-compose -f "$COMPOSE_FILE" ps --services | grep -q web; then
+              docker-compose -f "$COMPOSE_FILE" exec -T web python manage.py migrate --noinput || true
+              docker-compose -f "$COMPOSE_FILE" exec -T web python manage.py collectstatic --noinput || true
+            fi
+
+            # Restart celery workers if present
+            if docker-compose -f "$COMPOSE_FILE" ps --services | grep -q celery; then
+              docker-compose -f "$COMPOSE_FILE" restart celery || true
+            fi
+
+            echo "Deployment finished."
+
+  deploy:render:
+    name: Deploy to Render (optional)
+    runs-on: ubuntu-latest
+    needs: build-and-push
+    if: ${{ secrets.RENDER_SERVICE_ID != '' && secrets.RENDER_API_KEY != '' }}
+    steps:
+      - name: Trigger Render deploy
+        uses: peter-evans/http-client@v2
+        with:
+          url: https://api.render.com/deploys
+          method: POST
+          headers: |
+            Authorization: Bearer ${{ secrets.RENDER_API_KEY }}
+            Content-Type: application/json
+          body: |
+            {
+              "serviceId": "${{ secrets.RENDER_SERVICE_ID }}",
+              "clearCache": true
+            }
+
+  notify:
+    name: Notify on success/failure (optional)
+    runs-on: ubuntu-latest
+    needs: [deploy:ssh, deploy:render]
+    if: always()
+    steps:
+      - name: Prepare status
+        id: status
+        run: |
+          if [ "${{ needs.deploy:ssh.result }}" = "success" ] || [ "${{ needs.deploy:render.result }}" = "success" ]; then
+            echo "status=success" >> $GITHUB_OUTPUT
+          else
+            echo "status=failure" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Send Slack notification (optional)
+        if: ${{ secrets.SLACK_WEBHOOK_URL != '' }}
+        uses: 8398a7/action-slack@v3
+        with:
+          status: ${{ steps.status.outputs.status }}
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
