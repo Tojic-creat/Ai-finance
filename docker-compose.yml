@@ -1,0 +1,70 @@
+version: "3.8"
+
+services:
+  db:
+    image: postgres:15
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    ports:
+      - "${POSTGRES_PORT}:5432"
+
+  redis:
+    image: redis:7
+    restart: unless-stopped
+    ports:
+      - "${REDIS_PORT}:6379"
+    volumes:
+      - redis-data:/data
+
+  web:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    command: sh -c "./scripts/entrypoint.sh"
+    env_file:
+      - .env
+    volumes:
+      - ./backend:/app:delegated      # dev: монтируем код для быстрой разработки
+      - static-volume:/app/static
+      - media-volume:/app/media
+    depends_on:
+      - db
+      - redis
+    ports:
+      - "${WEB_PORT}:8000"
+    restart: unless-stopped
+
+  worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    command: celery -A finassist worker --loglevel=info
+    env_file:
+      - .env
+    volumes:
+      - ./backend:/app:delegated
+    depends_on:
+      - db
+      - redis
+    restart: unless-stopped
+
+  ml:
+    build:
+      context: ./ml_service
+      dockerfile: Dockerfile
+    env_file:
+      - .env
+    ports:
+      - "8001:8000"
+    restart: on-failure
+
+volumes:
+  db-data:
+  redis-data:
+  static-volume:
+  media-volume:

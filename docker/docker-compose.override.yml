@@ -1,0 +1,12 @@
+version: "3.8"
+services:
+  web:
+    ports:
+      - "8000:8000"
+    environment:
+      - DJANGO_DEBUG=True
+    volumes:
+      - ./backend:/app:delegated
+  worker:
+    volumes:
+      - ./backend:/app:delegated
