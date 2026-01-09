@@ -1,0 +1,47 @@
+# Core framework
+Django>=4.2,<5
+
+# REST API
+djangorestframework>=3.14,<4
+
+# Database adapter
+psycopg2-binary>=2.9
+
+# Environment / config
+django-environ>=0.10.0
+python-dotenv>=1.0.0
+
+# WSGI server (production)
+gunicorn>=20.1
+
+# Static files (serving in simple setups)
+whitenoise>=6.5
+
+# Storage (S3 / MinIO)
+django-storages[boto3]>=1.14
+boto3>=1.26
+
+# Background tasks / broker
+celery>=5.3,<6
+redis>=4.5,<5
+
+# CORS (if needed)
+django-cors-headers>=3.14
+
+# OAuth (optional)
+social-auth-app-django>=5.0
+
+# File handling / images
+Pillow>=9.0
+
+# CSV / data helpers (optional; useful for import preview)
+pandas>=2.0,<3
+
+# Email helpers (optional; for SendGrid integration)
+sendgrid>=6.9
+
+# Useful Django dev utilities (optional in runtime)
+django-extensions>=3.2
+
+# API docs (optional)
+drf-yasg>=1.22.0

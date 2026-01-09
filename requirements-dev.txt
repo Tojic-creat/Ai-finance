@@ -1,0 +1,44 @@
+# requirements-dev.txt
+# Developer & test dependencies for FinAssist (Django backend and ml_service)
+# Keep this lean for faster installs in CI/local dev. Heavy ML deps go to ml_service/requirements-ml.txt
+
+# Testing
+pytest>=7.3,<8
+pytest-django>=4.5
+pytest-cov>=4.0
+
+# Factories / fixtures
+factory-boy>=3.2
+Faker>=18.0
+
+# Code style / formatting / linting
+black>=24.1,<25
+isort>=5.13,<6
+ruff>=0.2.41,<1
+flake8>=6.1,<7
+
+# Type checking
+mypy>=1.4.1,<2
+
+# Pre-commit hooks runner
+pre-commit>=4.6.0
+
+# Security & static analysis (optional but useful in CI/local)
+bandit>=1.8.1
+detect-secrets>=1.4.2
+
+# Productivity / REPL / helpers
+ipython>=8.0
+django-extensions>=3.2
+
+# Coverage / reporting
+coverage>=7.2
+
+# Local orchestration / dev automation
+tox>=4.7
+
+# Utilities (DB fixtures, CSV tests etc.)
+pandas>=2.0,<3
+
+# Note: heavy ML libraries (scikit-learn, prophet, torch, etc.) should be in
+# ml_service/requirements-ml.txt to keep backend/dev installs lightweight.
