@@ -1,0 +1,92 @@
+# .pre-commit-config.yaml
+# Pre-commit configuration for FinAssist project
+# Python: 3.11
+
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.6.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-added-large-files
+        args: ["--maxkb=500"]
+      - id: check-merge-conflict
+      - id: debug-statements
+
+  - repo: https://github.com/psf/black
+    rev: 24.1.0
+    hooks:
+      - id: black
+        name: black (format)
+        language_version: python3.11
+        args: ["--line-length", "88"]
+
+  - repo: https://github.com/PyCQA/isort
+    rev: 5.13.0
+    hooks:
+      - id: isort
+        name: isort (sort imports)
+        language_version: python3.11
+        args: ["--profile", "black"]
+
+  - repo: https://github.com/charliermarsh/ruff-pre-commit
+    rev: v0.2.41
+    hooks:
+      - id: ruff
+        name: ruff (lint & fix)
+        args: ["--fix", "--line-length=88"]
+        additional_dependencies: []
+
+  - repo: https://github.com/pre-commit/mirrors-flake8
+    rev: v6.1.0
+    hooks:
+      - id: flake8
+        name: flake8 (style checks)
+        language_version: python3.11
+        # You can tune max-line-length or ignore codes via .flake8 config file
+
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.4.1
+    hooks:
+      - id: mypy
+        name: mypy (type checking)
+        language_version: python3.11
+        args:
+          - "--ignore-missing-imports"
+          - "--no-incremental"
+        # Note: mypy can be slow on large changes — consider gating it to CI only if needed.
+
+  - repo: https://github.com/Yelp/detect-secrets
+    rev: v1.4.2
+    hooks:
+      - id: detect-secrets-hook
+        name: detect-secrets (scan secrets)
+        args: ["--baseline", ".secrets.baseline"]
+        files: "" # check all files (detect-secrets handles scanning)
+
+  - repo: https://github.com/PyCQA/bandit
+    rev: 1.8.1
+    hooks:
+      - id: bandit
+        name: bandit (security checks)
+        language_version: python3.11
+        args: ["-r", "."]
+
+  - repo: https://github.com/pre-commit/pre-commit-hooks-ci
+    rev: v0.3.2
+    hooks:
+      - id: check-executables-have-shebangs
+      - id: forbid-binary
+
+# Optional: safety (package vulnerability scanner) — often slow locally; consider enabling in CI instead
+# To enable uncomment the block below and add a requirements file to scan (e.g. requirements-ml.txt)
+#
+#  - repo: https://github.com/pyupio/safety
+#    rev: v2.1.0
+#    hooks:
+#      - id: safety
+#        args: ["check", "--full-report", "--file=requirements-ml.txt"]
+
+# Global default language version (fallback)
+default_language_version: python3.11

@@ -1,0 +1,46 @@
+# ml_service/requirements-ml.txt
+# Зависимости для ml_service (модели, inference, API)
+# Держите этот файл отдельно от backend/requirements.txt, т.к. он может содержать тяжёлые библиотеки.
+
+fastapi>=0.95,<1
+uvicorn[standard]>=0.22,<1
+
+# Data & numerics
+numpy>=1.24,<2
+pandas>=2.0,<3
+pyarrow>=12.0,<13
+
+# ML & forecasting
+scikit-learn>=1.2,<2
+statsmodels>=0.14,<1
+prophet>=1.2,<2            # forecasting (fbprophet -> prophet)
+joblib>=1.2
+
+# Gradient boosting (optional but common)
+lightgbm>=3.3,<4
+xgboost>=1.7,<2
+
+# Model serialization & metrics
+pydantic>=1.10,<2
+scikit-optimize>=0.9.0
+python-dotenv>=1.0.0
+
+# Optional: model tracking / experiments (uncomment if used)
+# mlflow>=2.4
+
+# Utilities
+orjson>=3.8      # fast JSON (used by FastAPI if configured)
+aiofiles>=23.1   # file streaming for FastAPI
+python-multipart>=0.0.6
+
+# HTTP / clients (if ML service calls external APIs)
+httpx>=0.24
+
+# Dev / testing for ml_service (move to requirements-dev if preferred)
+pytest>=7.3,<8
+pytest-asyncio>=0.21
+
+# Notes:
+# - Эти пакеты довольно тяжёлые (numpy/pandas/lightgbm/xgboost/prophet) — установка в CI может занимать время.
+# - При желании создайте облегчённый файл ml_service/requirements-ml-ci.txt с минимальным набором для тестов.
+# - Зафиксируйте версии перед продакшн-релизом для повторяемости (например, заменить >= на ==).

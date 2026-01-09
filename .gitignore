@@ -1,4 +1,157 @@
-docker/docker-compose.override.yml
+# =========================
+# FinAssist — .gitignore
+# (Django backend, ml_service, Docker, Python, Node, IDEs)
+# =========================
+
+# Byte-compiled / optimized / DLLs
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+*.egg-info/
+.installed.cfg
+*.egg
+pip-wheel-metadata/
+
+# Installer / pip logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+venv.bak/
+
+# Environment / secrets (don't commit real secrets)
 .env
-.venv
-venv
+.env.*        # e.g. .env.local, .env.production (keep example files like .env.example in repo)
+
+# pytest / coverage / testing
+.pytest_cache/
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+.tox/
+.nox/
+
+# Type checker / linters caches
+.mypy_cache/
+.ruff_cache/
+.pyre/
+
+# Editor directories and files
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+logs/
+*.log
+*.out
+
+# Django
+# Ignore local sqlite DB and uploaded media / collected static files
+db.sqlite3
+db.sqlite3-journal
+# Media / user uploads (use MinIO/S3 in prod)
+**/media/
+media/
+# Collected static files (from collectstatic)
+**/staticfiles/
+staticfiles/
+# If you prefer to keep static in repo, remove static* entries above
+
+# Django local settings
+local_settings.py
+
+# Celery
+celerybeat-schedule
+celerybeat.pid
+celerybeat-schedule.*
+
+# Docker
+# Ignore docker-compose override files for local dev and env files
+docker-compose.override.yml
+docker-compose.*.yml
+.env.docker
+docker-compose.local.yml
+
+# Docker runtime files
+**/docker-compose.override.yml
+**/.env.docker
+
+# Node / frontend build artifacts (for Tailwind if using npm)
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnp.*
+.pnp.js
+dist/
+public/build/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# ML / data artifacts
+# Do NOT commit large datasets, model binaries or intermediate artifacts
+data/
+datasets/
+*.csv
+*.tsv
+*.zip
+*.gz
+
+# ML models & artifacts
+*.pkl
+*.joblib
+*.h5
+*.hdf5
+*.pt
+*.pth
+models/
+artifacts/
+ml_runs/
+checkpoints/
+
+# Temporary files
+*.tmp
+*.swp
+*.swm
+
+# IDE / OS specific
+*.iml
+
+# Keys, certs
+*.pem
+*.key
+*.crt
+
+# GitHub Actions artifacts / caches (optional)
+.github/workflows/*.secret
+
+# End of .gitignore
