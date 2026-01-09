@@ -1,55 +1,92 @@
-#!/usr/bin/env bash
+#!/bin/sh
 set -e
 
-# простой wait-for-db (проверка соединения)
-echo "Waiting for database to become available..."
-MAX_RETRIES=30
-i=0
-while ! python - <<PYCODE
-import sys, os, psycopg2
+# Default envs (if not set)
+: "${POSTGRES_HOST:=db}"
+: "${POSTGRES_PORT:=5432}"
+: "${DATABASE_URL:=postgresql://finassist:finassist_pass@${POSTGRES_HOST}:${POSTGRES_PORT}/finassist_dev}"
+: "${DJANGO_COLLECTSTATIC:=1}"
+
+echo "Entry point: environment summary:"
+echo "POSTGRES_HOST=${POSTGRES_HOST}, POSTGRES_PORT=${POSTGRES_PORT}"
+echo "DATABASE_URL=${DATABASE_URL}"
+echo "DJANGO_COLLECTSTATIC=${DJANGO_COLLECTSTATIC}"
+
+# Wait for DB to be reachable (use python+psycopg2 if available; fallback to tcp socket test)
+wait_for_db() {
+  local timeout=${DB_WAIT_TIMEOUT:-120}
+  local interval=${DB_WAIT_RETRY:-2}
+  local start_ts=$(date +%s)
+
+  echo "Waiting for database to become available..."
+  while true; do
+    # Try python + psycopg2 connection (most reliable)
+    if python - <<'PY' 2>/dev/null
+import os, sys, urllib.parse
 try:
-    conn = psycopg2.connect(os.environ.get('DATABASE_URL'))
-    conn.close()
-    print('OK')
+    import psycopg2
+    url = os.environ.get("DATABASE_URL")
+    if not url:
+        sys.exit(1)
+    parsed = urllib.parse.urlparse(url)
+    conn_info = {
+        "dbname": parsed.path.lstrip('/'),
+        "user": parsed.username,
+        "password": parsed.password,
+        "host": parsed.hostname,
+        "port": parsed.port
+    }
+    psycopg2.connect(**conn_info).close()
     sys.exit(0)
-except Exception as e:
-    # print(e)
+except Exception:
     sys.exit(1)
-PYCODE
-do
-  i=$((i+1))
-  if [ "$i" -ge "$MAX_RETRIES" ]; then
-    echo "Database didn't become available in time (timeout)."
-    exit 1
-  fi
-  echo "DB not ready yet - sleeping 2s (attempt $i/$MAX_RETRIES)..."
-  sleep 2
-done
+PY
+    then
+      echo "OK"
+      return 0
+    fi
 
-echo "Database is available."
+    # Fallback: try to open TCP socket to host:port
+    if command -v nc >/dev/null 2>&1; then
+      nc -z "${POSTGRES_HOST}" "${POSTGRES_PORT}" >/dev/null 2>&1 && { echo "OK (tcp)"; return 0; }
+    else
+      # busybox style? try /dev/tcp
+      (echo > /dev/tcp/"${POSTGRES_HOST}"/"${POSTGRES_PORT}") >/dev/null 2>&1 && { echo "OK (devtcp)"; return 0; }
+    fi
 
-# Выполнить миграции
+    now_ts=$(date +%s)
+    elapsed=$((now_ts - start_ts))
+    if [ "$elapsed" -ge "$timeout" ]; then
+      echo "Database didn't become available in time (timeout ${timeout}s)."
+      return 1
+    fi
+
+    echo "DB not ready yet - sleeping ${interval}s..."
+    sleep "${interval}"
+  done
+}
+
+# Run wait
+if ! wait_for_db; then
+  echo "ERROR: Database not reachable. Exiting."
+  exit 1
+fi
+
+# Apply migrations
 echo "Apply database migrations..."
 python manage.py migrate --noinput
 
-# Собрать статические (в dev можно отключить)
-if [ "${DJANGO_COLLECTSTATIC:-1}" != "0" ]; then
+# Collect static if requested
+if [ "${DJANGO_COLLECTSTATIC}" = "1" ] || [ "${DJANGO_COLLECTSTATIC}" = "true" ]; then
   echo "Collect static files..."
-  python manage.py collectstatic --noinput
+  python manage.py collectstatic --noinput || true
 fi
 
-# Применить любые seed-скрипты (если есть)
-if [ -f ./scripts/init_db.sh ]; then
+# Run any seed script (init_db.sh)
+if [ -x ./scripts/init_db.sh ]; then
   echo "Running init_db.sh (seed)..."
-  ./scripts/init_db.sh || true
+  ./scripts/init_db.sh || echo "init_db.sh exited with non-zero code, continuing..."
 fi
 
-# Запустить Gunicorn (production) или runserver (dev)
-if [ "${DJANGO_ENV:-dev}" = "prod" ]; then
-  echo "Starting gunicorn..."
-  gunicorn finassist.wsgi:application --bind 0.0.0.0:8000 --workers 3
-else
-  echo "Starting Django development server..."
-  # используем 0.0.0.0 чтобы быть доступным из контейнера
-  python manage.py runserver 0.0.0.0:8000
-fi
+# Finally, run the CMD (provided by dockerfile/compose)
+exec "$@"
