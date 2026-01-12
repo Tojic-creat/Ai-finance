@@ -1,72 +1,67 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 """Django's command-line utility for administrative tasks.
 
 This manage.py is tailored for the FinAssist project (backend/finassist).
 It:
- - loads environment variables from a .env file (if present),
+ - optionally loads environment variables from a .env file (if python-dotenv is installed),
  - sets a sensible default DJANGO_SETTINGS_MODULE (finassist.settings.dev),
-   but allows overriding via the environment (e.g. DJANGO_SETTINGS_MODULE=finassist.settings.prod),
- - then delegates to Django's command machinery.
+ - allows overriding the settings module via the environment,
+ - then delegates to Django's management commands.
 """
 
 import os
 import sys
 from pathlib import Path
 
-# --- Опционально подгружаем .env (если присутствует) ---
-# .env может находиться в корне репозитория или в папке backend/.
-# Это удобно для локальной разработки; в контейнерах обычно используются ENV переменные.
+# Try to import python-dotenv's loader (optional; useful for local dev)
 try:
-    # python-dotenv (installed via requirements)
-    from dotenv import load_dotenv
+    from dotenv import load_dotenv  # type: ignore
 except Exception:
-    load_dotenv = None
+    load_dotenv = None  # type: ignore
 
 # repo root (one level above backend/)
 BASE_DIR = Path(__file__).resolve().parent.parent
-# Попробуем несколько стандартных мест для .env
+
+# try a few standard places for .env (repo root, backend/)
 _dotenv_candidates = [
     BASE_DIR / ".env",
-    Path(__file__).resolve().parent / ".env",  # backend/.env
+    Path(__file__).resolve().parent / ".env",
 ]
 
 if load_dotenv is not None:
     for p in _dotenv_candidates:
         if p.exists():
+            # load and stop at first found
             load_dotenv(dotenv_path=str(p))
-            # don't print in CI; only helpful in local dev
             if os.environ.get("CI", "").lower() not in ("1", "true"):
                 print(f"Loaded environment from {p}")
             break
 
 
 def main():
-    # Установим значение DJANGO_SETTINGS_MODULE по умолчанию, если оно не задано.
-    # Для разработки по умолчанию используем finassist.settings.dev — удобно для local docker-compose.
+    # Default to dev settings for local docker-compose / dev runs
     os.environ.setdefault("DJANGO_SETTINGS_MODULE", "finassist.settings.dev")
 
-    # Позволяем переопределять DJANGO_SETTINGS_MODULE извне (например, в CI/CD / Docker)
+    # Ensure it's set (allow overriding from environment)
     settings_module = os.environ.get("DJANGO_SETTINGS_MODULE")
     if settings_module is None:
-        # safety: ensure it's set
         os.environ["DJANGO_SETTINGS_MODULE"] = "finassist.settings.dev"
         settings_module = "finassist.settings.dev"
 
-    # Небольшая полезная диагностика при запуске вручную
+    # Helpful diagnostic when running interactively (not in CI)
     if os.environ.get("CI", "").lower() not in ("1", "true"):
         print(f"Using settings module: {settings_module}")
 
     try:
-        # Импортируем Django и делегируем управление
         from django.core.management import execute_from_command_line
     except Exception as exc:
-        # Provide a more informative error if Django is not installed / not importable
+        # More informative error for missing/invalid Django environment
         raise RuntimeError(
-            "Failed to import Django. Is it installed and available on PYTHONPATH? "
-            "Did you forget to activate a virtualenv? Original error: "
+            "Failed to import Django. Is Django installed (check requirements.txt) "
+            "and available on PYTHONPATH? Original import error: "
+            f"{exc!r}"
         ) from exc
 
-    # Запуск команды
     execute_from_command_line(sys.argv)
 
 
