@@ -12,15 +12,13 @@ echo "POSTGRES_HOST=${POSTGRES_HOST}, POSTGRES_PORT=${POSTGRES_PORT}"
 echo "DATABASE_URL=${DATABASE_URL}"
 echo "DJANGO_COLLECTSTATIC=${DJANGO_COLLECTSTATIC}"
 
-# Wait for DB to be reachable (use python+psycopg2 if available; fallback to tcp socket test)
 wait_for_db() {
-  local timeout=${DB_WAIT_TIMEOUT:-120}
-  local interval=${DB_WAIT_RETRY:-2}
-  local start_ts=$(date +%s)
+  timeout=${DB_WAIT_TIMEOUT:-120}
+  interval=${DB_WAIT_RETRY:-2}
+  start_ts=$(date +%s)
 
   echo "Waiting for database to become available..."
   while true; do
-    # Try python + psycopg2 connection (most reliable)
     if python - <<'PY' 2>/dev/null
 import os, sys, urllib.parse
 try:
@@ -46,11 +44,9 @@ PY
       return 0
     fi
 
-    # Fallback: try to open TCP socket to host:port
     if command -v nc >/dev/null 2>&1; then
       nc -z "${POSTGRES_HOST}" "${POSTGRES_PORT}" >/dev/null 2>&1 && { echo "OK (tcp)"; return 0; }
     else
-      # busybox style? try /dev/tcp
       (echo > /dev/tcp/"${POSTGRES_HOST}"/"${POSTGRES_PORT}") >/dev/null 2>&1 && { echo "OK (devtcp)"; return 0; }
     fi
 
@@ -86,6 +82,16 @@ fi
 if [ -x ./scripts/init_db.sh ]; then
   echo "Running init_db.sh (seed)..."
   ./scripts/init_db.sh || echo "init_db.sh exited with non-zero code, continuing..."
+fi
+
+# --- DEBUG: show what args we got (so we can see if compose passed command) ---
+echo "Entry point: args before exec: [$*] (count=$#)"
+
+# If no args were supplied, fall back to a safe default for dev.
+# This prevents the container from just exiting if compose didn't pass command.
+if [ "$#" -eq 0 ]; then
+  echo "No command provided to entrypoint — using default: python manage.py runserver 0.0.0.0:8000 --noreload"
+  set -- python manage.py runserver 0.0.0.0:8000 --noreload
 fi
 
 # Finally, run the CMD (provided by dockerfile/compose)

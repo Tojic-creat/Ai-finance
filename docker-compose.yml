@@ -1,9 +1,10 @@
-version: "3.8"
-
+# docker-compose.yml
 services:
   db:
     image: postgres:15
     restart: unless-stopped
+    env_file:
+      - .env
     environment:
       POSTGRES_DB: ${POSTGRES_DB}
       POSTGRES_USER: ${POSTGRES_USER}
@@ -25,11 +26,12 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    command: sh -c "./scripts/entrypoint.sh"
+    entrypoint: ["/app/scripts/entrypoint.sh"]
+    command: ["python", "manage.py", "runserver", "0.0.0.0:8000", "--noreload"]
     env_file:
       - .env
     volumes:
-      - ./backend:/app:delegated      # dev: монтируем код для быстрой разработки
+      - ./backend:/app:delegated
       - static-volume:/app/static
       - media-volume:/app/media
     depends_on:
@@ -43,7 +45,8 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    command: celery -A finassist worker --loglevel=info
+    entrypoint: ["/app/scripts/entrypoint.sh"]
+    command: ["celery", "-A", "finassist", "worker", "--loglevel=info"]
     env_file:
       - .env
     volumes:
@@ -52,11 +55,12 @@ services:
       - db
       - redis
     restart: unless-stopped
-
+    
   ml:
     build:
       context: ./ml_service
       dockerfile: Dockerfile
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
     env_file:
       - .env
     ports:
