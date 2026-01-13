@@ -106,7 +106,7 @@ if [ "${DJANGO_COLLECTSTATIC}" = "1" ] || [ "${DJANGO_COLLECTSTATIC}" = "true" ]
   # Run collectstatic; if it fails we print an error and continue (for dev). 
   # Remove '|| true' if you prefer the container to fail on collectstatic error.
   if ! python manage.py collectstatic --noinput; then
-    log "collectstatic failed — continuing (you may want to check STATIC_ROOT and file permissions)."
+    log "collectstatic failed вЂ” continuing (you may want to check STATIC_ROOT and file permissions)."
   fi
 fi
 
@@ -123,7 +123,7 @@ log "Entry point: args before exec: [$*] (count=$#)"
 
 # If no args were supplied, fall back to a safe default for dev.
 if [ "$#" -eq 0 ]; then
-  log "No command provided to entrypoint — using default: python manage.py runserver 0.0.0.0:8000 --noreload"
+  log "No command provided to entrypoint вЂ” using default: python manage.py runserver 0.0.0.0:8000 --noreload"
   set -- python manage.py runserver 0.0.0.0:8000 --noreload
 fi
 
