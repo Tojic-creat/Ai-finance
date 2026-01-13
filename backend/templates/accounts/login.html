@@ -1,0 +1,139 @@
+{# backend/templates/accounts/login.html #} {% extends "base.html" %} {% load
+static %} {% block title %}Вход — FinAssist{% endblock %} {% block content %}
+<div class="max-w-md mx-auto">
+  <div class="bg-white border rounded-lg shadow-sm p-6">
+    <h2 class="text-xl font-semibold text-gray-800 mb-2">Вход в FinAssist</h2>
+    <p class="text-sm text-gray-500 mb-4">
+      Используйте email и пароль для входа в аккаунт.
+    </p>
+
+    {# Show form non-field errors #} {% if form.non_field_errors %}
+    <div
+      class="mb-4 text-sm text-red-700 bg-red-50 border border-red-100 rounded p-3"
+    >
+      {% for err in form.non_field_errors %}
+      <div>{{ err }}</div>
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    <form method="post" action="{% url 'login' %}" class="space-y-4">
+      {% csrf_token %} {# Next parameter (redirect after login) #} {% if next %}
+      <input type="hidden" name="next" value="{{ next }}" />
+      {% endif %} {# Email / Username field - prefer form if provided, otherwise
+      fallback to named input #}
+      <div>
+        <label
+          for="id_username"
+          class="block text-sm font-medium text-gray-700 mb-1"
+          >Email или логин</label
+        >
+        {% if form.username %} {{ form.username.errors }} {{ form.username }} {%
+        else %}
+        <input
+          id="id_username"
+          name="username"
+          type="text"
+          required
+          class="w-full rounded border-gray-200 focus:ring-indigo-500 focus:border-indigo-500 p-2"
+        />
+        {% endif %}
+      </div>
+
+      <div>
+        <label
+          for="id_password"
+          class="block text-sm font-medium text-gray-700 mb-1"
+          >Пароль</label
+        >
+        {% if form.password %} {{ form.password.errors }} {{ form.password }} {%
+        else %}
+        <input
+          id="id_password"
+          name="password"
+          type="password"
+          required
+          class="w-full rounded border-gray-200 focus:ring-indigo-500 focus:border-indigo-500 p-2"
+        />
+        {% endif %}
+      </div>
+
+      <div class="flex items-center justify-between text-sm">
+        <label class="inline-flex items-center space-x-2">
+          <input
+            type="checkbox"
+            name="remember_me"
+            class="rounded border-gray-300"
+          />
+          <span class="text-gray-600">Запомнить меня</span>
+        </label>
+        <a
+          href="{% url 'password_reset' %}"
+          class="text-indigo-600 hover:underline"
+          >Забыли пароль?</a
+        >
+      </div>
+
+      <div>
+        <button
+          type="submit"
+          class="w-full inline-flex justify-center items-center px-4 py-2 bg-indigo-600 text-white rounded shadow-sm hover:bg-indigo-700"
+        >
+          Войти
+        </button>
+      </div>
+    </form>
+
+    <div class="mt-4 text-center text-sm text-gray-500">
+      Нет аккаунта?
+      <a
+        href="{% url 'accounts:register' %}"
+        class="text-indigo-600 hover:underline"
+        >Зарегистрироваться</a
+      >
+    </div>
+
+    {# Optional social / OAuth buttons (render if urls exist) #}
+    <div class="mt-6">
+      <div class="text-xs text-gray-400 mb-2">Войти через</div>
+      <div class="flex gap-2">
+        {# These links are optional — if you use social-auth, ensure
+        corresponding URLs exist #}
+        <a
+          href="{% url 'social:begin' 'google-oauth2' %}"
+          class="flex-1 inline-flex items-center justify-center px-3 py-2 border rounded hover:bg-gray-50"
+        >
+          <img
+            src="{% static 'images/google-mark.svg' %}"
+            alt="Google"
+            class="h-4 w-4 mr-2"
+          />
+          Google
+        </a>
+        <a
+          href="{% url 'social:begin' 'github' %}"
+          class="flex-1 inline-flex items-center justify-center px-3 py-2 border rounded hover:bg-gray-50"
+        >
+          <img
+            src="{% static 'images/github-mark.svg' %}"
+            alt="GitHub"
+            class="h-4 w-4 mr-2"
+          />
+          GitHub
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <p class="text-xs text-gray-400 mt-4">
+    Входя в систему вы соглашаетесь с
+    <a href="{% url 'tos' %}" class="text-indigo-600 hover:underline"
+      >Условиями использования</a
+    >
+    и
+    <a href="{% url 'privacy' %}" class="text-indigo-600 hover:underline"
+      >Политикой конфиденциальности</a
+    >.
+  </p>
+</div>
+{% endblock %}

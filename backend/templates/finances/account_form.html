@@ -1,0 +1,209 @@
+{# backend/templates/finances/account_form.html #} {% extends "base.html" %} {%
+load static %} {% block title %}{% if form.instance.pk %}Редактировать счёт{%
+else %}Новый счёт{% endif %} — FinAssist{% endblock %} {% block header_title %}
+{% if form.instance.pk %}Редактировать счёт{% else %}Новый счёт{% endif %} {%
+endblock %} {% block content %}
+<div class="max-w-3xl mx-auto">
+  <div class="bg-white border rounded-lg shadow-sm p-6">
+    {% if form.non_field_errors %}
+    <div
+      class="mb-4 text-sm text-red-700 bg-red-50 border border-red-100 p-3 rounded"
+    >
+      {{ form.non_field_errors }}
+    </div>
+    {% endif %}
+
+    <form method="post" enctype="multipart/form-data" novalidate>
+      {% csrf_token %}
+
+      <!-- name -->
+      <div class="mb-4">
+        <label class="block text-sm font-medium text-gray-700">Название</label>
+        <div class="mt-1">
+          {{ form.name|as_crispy_field|default:form.name }}
+        </div>
+        {% if form.name.errors %}
+        <p class="mt-1 text-xs text-red-600">
+          {{ form.name.errors|join:", " }}
+        </p>
+        {% endif %}
+        <p class="text-xs text-gray-400 mt-1">
+          Краткое имя счёта, например "Основная карта" или "Наличные".
+        </p>
+      </div>
+
+      <!-- type & currency -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+        <div>
+          <label class="block text-sm font-medium text-gray-700">Тип</label>
+          <div class="mt-1">
+            {{ form.type|as_crispy_field|default:form.type }}
+          </div>
+          {% if form.type.errors %}
+          <p class="mt-1 text-xs text-red-600">
+            {{ form.type.errors|join:", " }}
+          </p>
+          {% endif %}
+          <p class="text-xs text-gray-400 mt-1">
+            Карта / Счёт / Кошелёк / Наличные.
+          </p>
+        </div>
+
+        <div>
+          <label class="block text-sm font-medium text-gray-700">Валюта</label>
+          <div class="mt-1">
+            {{ form.currency|as_crispy_field|default:form.currency }}
+          </div>
+          {% if form.currency.errors %}
+          <p class="mt-1 text-xs text-red-600">
+            {{ form.currency.errors|join:", " }}
+          </p>
+          {% endif %}
+        </div>
+      </div>
+
+      <!-- initial balance & alert threshold -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+        <div>
+          <label class="block text-sm font-medium text-gray-700"
+            >Начальный остаток</label
+          >
+          <div class="mt-1">
+            {{ form.initial_balance|as_crispy_field|default:form.initial_balance
+            }}
+          </div>
+          {% if form.initial_balance.errors %}
+          <p class="mt-1 text-xs text-red-600">
+            {{ form.initial_balance.errors|join:", " }}
+          </p>
+          {% endif %}
+          <p class="text-xs text-gray-400 mt-1">
+            Укажите начальную сумму на счёте (будет учтена при подсчётах).
+          </p>
+        </div>
+
+        <div>
+          <label class="block text-sm font-medium text-gray-700"
+            >Порог уведомления (опционально)</label
+          >
+          <div class="mt-1">
+            {{ form.alert_threshold|as_crispy_field|default:form.alert_threshold
+            }}
+          </div>
+          {% if form.alert_threshold.errors %}
+          <p class="mt-1 text-xs text-red-600">
+            {{ form.alert_threshold.errors|join:", " }}
+          </p>
+          {% endif %}
+          <p class="text-xs text-gray-400 mt-1">
+            Если баланс опустится ниже порога — придёт уведомление (каналы в
+            настройках).
+          </p>
+        </div>
+      </div>
+
+      <!-- tags -->
+      <div class="mb-4">
+        <label class="block text-sm font-medium text-gray-700"
+          >Метки / Теги</label
+        >
+        <div class="mt-1">
+          {{ form.tags|as_crispy_field|default:form.tags }}
+        </div>
+        {% if form.tags.errors %}
+        <p class="mt-1 text-xs text-red-600">
+          {{ form.tags.errors|join:", " }}
+        </p>
+        {% endif %}
+        <p class="text-xs text-gray-400 mt-1">
+          Отделите метки запятыми или выберите из списка (в зависимости от поля
+          формы).
+        </p>
+      </div>
+
+      <!-- description -->
+      <div class="mb-4">
+        <label class="block text-sm font-medium text-gray-700"
+          >Описание (опционально)</label
+        >
+        <div class="mt-1">
+          {{ form.description|as_crispy_field|default:form.description }}
+        </div>
+        {% if form.description.errors %}
+        <p class="mt-1 text-xs text-red-600">
+          {{ form.description.errors|join:", " }}
+        </p>
+        {% endif %}
+      </div>
+
+      <!-- file attachment (optional) -->
+      <div class="mb-4">
+        <label class="block text-sm font-medium text-gray-700"
+          >Прикрепить файл (например фото карты или чек) — опционально</label
+        >
+        <div class="mt-1">
+          {{ form.attachment|as_crispy_field|default:form.attachment }}
+        </div>
+        {% if form.attachment.errors %}
+        <p class="mt-1 text-xs text-red-600">
+          {{ form.attachment.errors|join:", " }}
+        </p>
+        {% endif %}
+        <p class="text-xs text-gray-400 mt-1">
+          Поддерживаются: jpg, png, pdf. Максимум 10 MB.
+        </p>
+      </div>
+
+      <!-- privacy / visibility toggle -->
+      {% if form.default_visibility %}
+      <div class="mb-4">
+        <label class="block text-sm font-medium text-gray-700"
+          >Приватность транзакций по умолчанию</label
+        >
+        <div class="mt-1">
+          {{
+          form.default_visibility|as_crispy_field|default:form.default_visibility
+          }}
+        </div>
+        <p class="text-xs text-gray-400 mt-1">
+          full — показывать детали, masked — скрыть детали, hidden — скрыть
+          полностью.
+        </p>
+      </div>
+      {% endif %}
+
+      <!-- submit -->
+      <div class="mt-6 flex items-center gap-3">
+        <button
+          type="submit"
+          class="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700"
+        >
+          Сохранить
+        </button>
+        <a
+          href="{% url 'finances:account_list' %}"
+          class="px-4 py-2 border rounded text-sm hover:bg-gray-50"
+          >Отменить</a
+        >
+
+        {% if form.instance.pk %}
+        <form
+          method="post"
+          action="{% url 'finances:account_delete' form.instance.pk %}"
+          class="inline-block ml-auto"
+          onsubmit="return confirm('Удалить счёт «{{ form.instance.name }}»? Это действие удалит связанные локальные операции.')"
+        >
+          {% csrf_token %}
+          <button
+            type="submit"
+            class="px-3 py-2 text-sm bg-red-50 text-red-700 border rounded hover:bg-red-100"
+          >
+            Удалить счёт
+          </button>
+        </form>
+        {% endif %}
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

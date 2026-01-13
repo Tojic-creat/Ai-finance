@@ -1,0 +1,211 @@
+{# backend/templates/finances/account_list.html #}
+{% extends "base.html" %}
+{% load static %}
+{% block title %}Счёта — FinAssist{% endblock %}
+
+{% block header_title %}Мои счёта{% endblock %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto space-y-6">
+
+  <div class="flex items-center justify-between">
+    <div>
+      <h1 class="text-2xl font-semibold text-gray-800">Счёта</h1>
+      <p class="text-sm text-gray-500">Управляйте вашими банковскими счётами, картами и кошельками.</p>
+    </div>
+
+    <div class="flex items-center gap-2">
+      <a href="{% url 'finances:account_create' %}"
+         class="inline-flex items-center px-4 py-2 bg-indigo-600 text-white rounded shadow-sm hover:bg-indigo-700 text-sm">
+        + Добавить счёт
+      </a>
+
+      <button
+        class="inline-flex items-center px-4 py-2 border rounded text-sm hover:bg-gray-50"
+        hx-get="{% url 'finances:accounts_export' %}" hx-target="#htmx-modal" hx-swap="innerHTML">
+        Экспорт
+      </button>
+
+      <button
+        class="inline-flex items-center px-4 py-2 border rounded text-sm hover:bg-gray-50"
+        hx-get="{% url 'finances:transactions_import_preview' %}" hx-target="#htmx-modal" hx-swap="innerHTML">
+        Импорт CSV
+      </button>
+    </div>
+  </div>
+
+  <!-- Summary -->
+  <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+    <div class="bg-white border rounded-lg p-4 shadow-sm">
+      <div class="text-xs text-gray-500">Агрегированный баланс</div>
+      <div class="mt-2 text-2xl font-semibold text-gray-900">
+        {% if total_balance %}
+          {{ total_balance|floatformat:2 }} {{ total_currency|default:"—" }}
+        {% else %}
+          — 
+        {% endif %}
+      </div>
+      <div class="text-xs text-gray-400 mt-1">Снято snapshot: {{ last_snapshot_date|default:"—" }}</div>
+    </div>
+
+    <div class="bg-white border rounded-lg p-4 shadow-sm">
+      <div class="text-xs text-gray-500">Кол-во счётов</div>
+      <div class="mt-2 text-2xl font-semibold text-gray-900">{{ accounts|length }}</div>
+      <div class="text-xs text-gray-400 mt-1">Типы: {{ account_types_summary|default:"—" }}</div>
+    </div>
+
+    <div class="bg-white border rounded-lg p-4 shadow-sm">
+      <div class="text-xs text-gray-500">Низкий баланс (всего)</div>
+      <div class="mt-2 text-2xl font-semibold text-gray-900">{{ low_balance_count|default:0 }}</div>
+      <div class="text-xs text-gray-400 mt-1">Пороговые уведомления включены</div>
+    </div>
+  </div>
+
+  <!-- Filters -->
+  <div class="bg-white border rounded-lg p-4 shadow-sm">
+    <form method="get" class="grid grid-cols-1 md:grid-cols-4 gap-3 items-end">
+      <div>
+        <label class="text-xs text-gray-600">Поиск</label>
+        <input name="q" type="text" value="{{ request.GET.q|default:'' }}" placeholder="название, тег, валюта"
+               class="w-full rounded border-gray-200 p-2 text-sm">
+      </div>
+
+      <div>
+        <label class="text-xs text-gray-600">Тип</label>
+        <select name="type" class="w-full rounded border-gray-200 p-2 text-sm">
+          <option value="">Все типы</option>
+          <option value="card" {% if request.GET.type == 'card' %}selected{% endif %}>Карта</option>
+          <option value="account" {% if request.GET.type == 'account' %}selected{% endif %}>Счёт</option>
+          <option value="wallet" {% if request.GET.type == 'wallet' %}selected{% endif %}>Кошелёк</option>
+          <option value="cash" {% if request.GET.type == 'cash' %}selected{% endif %}>Наличные</option>
+        </select>
+      </div>
+
+      <div>
+        <label class="text-xs text-gray-600">Валюта</label>
+        <select name="currency" class="w-full rounded border-gray-200 p-2 text-sm">
+          <option value="">Все валюты</option>
+          {% for cur in currencies %}
+            <option value="{{ cur }}" {% if request.GET.currency == cur %}selected{% endif %}>{{ cur }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="flex gap-2">
+        <button type="submit" class="px-3 py-2 bg-indigo-600 text-white rounded text-sm">Применить</button>
+        <a href="{% url 'finances:account_list' %}" class="px-3 py-2 border rounded text-sm">Сброс</a>
+      </div>
+    </form>
+  </div>
+
+  <!-- Accounts table -->
+  <div class="bg-white border rounded-lg shadow-sm overflow-x-auto">
+    <table class="min-w-full divide-y divide-gray-200">
+      <thead class="bg-gray-50">
+        <tr>
+          <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Название</th>
+          <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Тип</th>
+          <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Баланс</th>
+          <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Валюта</th>
+          <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Порог</th>
+          <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Метки</th>
+          <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Действия</th>
+        </tr>
+      </thead>
+      <tbody class="bg-white divide-y divide-gray-100">
+        {% if accounts %}
+          {% for acc in accounts %}
+            <tr>
+              <td class="px-4 py-3 whitespace-nowrap">
+                <a href="{% url 'finances:account_detail' acc.id %}" class="font-medium text-indigo-600 hover:underline">
+                  {{ acc.name }}
+                </a>
+                <div class="text-xs text-gray-400 mt-1">{{ acc.description|default:"—" }}</div>
+              </td>
+
+              <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
+                {{ acc.get_type_display|default:acc.type }}
+              </td>
+
+              <td class="px-4 py-3 whitespace-nowrap text-sm text-right font-semibold text-gray-900">
+                {{ acc.balance|floatformat:2 }} {{ acc.currency }}
+              </td>
+
+              <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-600">
+                {{ acc.currency }}
+              </td>
+
+              <td class="px-4 py-3 whitespace-nowrap text-sm">
+                {% if acc.alert_threshold %}
+                  <span class="inline-flex items-center px-2 py-1 rounded text-xs font-medium {% if acc.balance|floatformat:2|float < acc.alert_threshold|float %}bg-red-50 text-red-700 border border-red-100{% else %}bg-green-50 text-green-700 border border-green-100{% endif %}">
+                    {{ acc.alert_threshold }} {{ acc.currency }}
+                  </span>
+                {% else %}
+                  <span class="text-xs text-gray-400">—</span>
+                {% endif %}
+              </td>
+
+              <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-600">
+                {% if acc.tags %}
+                  <div class="flex flex-wrap gap-1">
+                    {% for t in acc.tags.all %}
+                      <span class="text-xs px-2 py-1 bg-gray-100 rounded">{{ t.name }}</span>
+                    {% endfor %}
+                  </div>
+                {% else %}
+                  <span class="text-xs text-gray-400">—</span>
+                {% endif %}
+              </td>
+
+              <td class="px-4 py-3 whitespace-nowrap text-right text-sm font-medium">
+                <a href="{% url 'finances:account_edit' acc.id %}" class="text-indigo-600 hover:underline mr-3">Изменить</a>
+                <form method="post" action="{% url 'finances:account_delete' acc.id %}" class="inline-block" onsubmit="return confirm('Удалить счёт {{ acc.name }}? Это также удалит связанные локальные операции.')">
+                  {% csrf_token %}
+                  <button type="submit" class="text-sm text-red-600 hover:underline">Удалить</button>
+                </form>
+              </td>
+            </tr>
+          {% endfor %}
+        {% else %}
+          <tr>
+            <td colspan="7" class="px-4 py-6 text-center text-sm text-gray-500">
+              У вас ещё нет счётов. <a href="{% url 'finances:account_create' %}" class="text-indigo-600 hover:underline">Добавить счёт</a>
+            </td>
+          </tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Pagination -->
+  {% if page_obj %}
+    <div class="flex items-center justify-between">
+      <div class="text-sm text-gray-600">
+        Показаны {{ page_obj.start_index }}—{{ page_obj.end_index }} из {{ page_obj.paginator.count }}
+      </div>
+      <div>
+        <nav class="inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
+          {% if page_obj.has_previous %}
+            <a href="?{% querystring request GET page=page_obj.previous_page_number %}" class="px-3 py-2 border rounded-l text-sm hover:bg-gray-50">Prev</a>
+          {% else %}
+            <span class="px-3 py-2 border rounded-l text-sm text-gray-400">Prev</span>
+          {% endif %}
+
+          <span class="px-3 py-2 border-t border-b text-sm">{{ page_obj.number }}</span>
+
+          {% if page_obj.has_next %}
+            <a href="?{% querystring request GET page=page_obj.next_page_number %}" class="px-3 py-2 border rounded-r text-sm hover:bg-gray-50">Next</a>
+          {% else %}
+            <span class="px-3 py-2 border rounded-r text-sm text-gray-400">Next</span>
+          {% endif %}
+        </nav>
+      </div>
+    </div>
+  {% endif %}
+
+</div>
+
+{# HTMX modal target for import/export previews etc. #}
+<div id="htmx-modal"></div>
+
+{% endblock %}

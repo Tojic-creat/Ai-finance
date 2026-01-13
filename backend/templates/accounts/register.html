@@ -1,0 +1,198 @@
+{# backend/templates/accounts/register.html #} {% extends "base.html" %} {% load
+static %} {% block title %}Регистрация — FinAssist{% endblock %} {% block
+header_title %}Регистрация{% endblock %} {% block content %}
+<div class="max-w-md mx-auto">
+  <div class="bg-white border rounded-lg shadow-sm p-6">
+    <h2 class="text-xl font-semibold text-gray-800 mb-2">
+      Создать аккаунт FinAssist
+    </h2>
+    <p class="text-sm text-gray-500 mb-4">
+      Зарегистрируйтесь, чтобы начать управлять своими финансами.
+    </p>
+
+    {# Show non-field errors from the form #} {% if form.non_field_errors %}
+    <div
+      class="mb-4 text-sm text-red-700 bg-red-50 border border-red-100 rounded p-3"
+    >
+      {% for err in form.non_field_errors %}
+      <div>{{ err }}</div>
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    <form
+      method="post"
+      action="{% url 'accounts:register' %}"
+      class="space-y-4"
+    >
+      {% csrf_token %}
+
+      <div>
+        <label
+          for="id_email"
+          class="block text-sm font-medium text-gray-700 mb-1"
+          >Email</label
+        >
+        {% if form.email %} {{ form.email.errors }} {{ form.email }} {% else %}
+        <input
+          id="id_email"
+          name="email"
+          type="email"
+          required
+          class="w-full rounded border-gray-200 focus:ring-indigo-500 focus:border-indigo-500 p-2"
+        />
+        {% endif %}
+      </div>
+
+      <div>
+        <label
+          for="id_username"
+          class="block text-sm font-medium text-gray-700 mb-1"
+          >Логин</label
+        >
+        {% if form.username %} {{ form.username.errors }} {{ form.username }} {%
+        else %}
+        <input
+          id="id_username"
+          name="username"
+          type="text"
+          required
+          class="w-full rounded border-gray-200 focus:ring-indigo-500 focus:border-indigo-500 p-2"
+        />
+        {% endif %}
+      </div>
+
+      <div>
+        <label
+          for="id_full_name"
+          class="block text-sm font-medium text-gray-700 mb-1"
+          >Имя (опционально)</label
+        >
+        {% if form.full_name %} {{ form.full_name.errors }} {{ form.full_name }}
+        {% else %}
+        <input
+          id="id_full_name"
+          name="full_name"
+          type="text"
+          class="w-full rounded border-gray-200 focus:ring-indigo-500 focus:border-indigo-500 p-2"
+        />
+        {% endif %}
+      </div>
+
+      <div>
+        <label
+          for="id_password1"
+          class="block text-sm font-medium text-gray-700 mb-1"
+          >Пароль</label
+        >
+        {% if form.password1 %} {{ form.password1.errors }} {{ form.password1 }}
+        {% else %}
+        <input
+          id="id_password1"
+          name="password1"
+          type="password"
+          required
+          class="w-full rounded border-gray-200 focus:ring-indigo-500 focus:border-indigo-500 p-2"
+        />
+        {% endif %}
+        <p class="text-xs text-gray-400 mt-1">
+          Не менее 8 символов, используйте буквы и цифры.
+        </p>
+      </div>
+
+      <div>
+        <label
+          for="id_password2"
+          class="block text-sm font-medium text-gray-700 mb-1"
+          >Подтвердите пароль</label
+        >
+        {% if form.password2 %} {{ form.password2.errors }} {{ form.password2 }}
+        {% else %}
+        <input
+          id="id_password2"
+          name="password2"
+          type="password"
+          required
+          class="w-full rounded border-gray-200 focus:ring-indigo-500 focus:border-indigo-500 p-2"
+        />
+        {% endif %}
+      </div>
+
+      <div class="flex items-center text-sm">
+        <label class="inline-flex items-center space-x-2">
+          <input
+            type="checkbox"
+            name="agree_terms"
+            required
+            class="rounded border-gray-300"
+          />
+          <span class="text-gray-600"
+            >Я принимаю
+            <a href="{% url 'tos' %}" class="text-indigo-600 hover:underline"
+              >Условия</a
+            >
+            и
+            <a
+              href="{% url 'privacy' %}"
+              class="text-indigo-600 hover:underline"
+              >Политику конфиденциальности</a
+            >.</span
+          >
+        </label>
+      </div>
+
+      <div>
+        <button
+          type="submit"
+          class="w-full inline-flex justify-center items-center px-4 py-2 bg-indigo-600 text-white rounded shadow-sm hover:bg-indigo-700"
+        >
+          Зарегистрироваться
+        </button>
+      </div>
+    </form>
+
+    <div class="mt-4 text-center text-sm text-gray-500">
+      Уже есть аккаунт?
+      <a href="{% url 'login' %}" class="text-indigo-600 hover:underline"
+        >Войти</a
+      >
+    </div>
+
+    {# Optional social / OAuth buttons if project supports them #}
+    <div class="mt-6">
+      <div class="text-xs text-gray-400 mb-2 text-center">
+        Или зарегистрироваться через
+      </div>
+      <div class="flex gap-2 justify-center">
+        <a
+          href="{% url 'social:begin' 'google-oauth2' %}"
+          class="inline-flex items-center px-3 py-2 border rounded hover:bg-gray-50"
+        >
+          <img
+            src="{% static 'images/google-mark.svg' %}"
+            alt="Google"
+            class="h-4 w-4 mr-2"
+          />
+          Google
+        </a>
+        <a
+          href="{% url 'social:begin' 'github' %}"
+          class="inline-flex items-center px-3 py-2 border rounded hover:bg-gray-50"
+        >
+          <img
+            src="{% static 'images/github-mark.svg' %}"
+            alt="GitHub"
+            class="h-4 w-4 mr-2"
+          />
+          GitHub
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <p class="text-xs text-gray-400 mt-4">
+    Ваши данные используются только для работы сервиса. Если вы включаете
+    аналитику транзакций для ИИ — система попросит отдельное согласие.
+  </p>
+</div>
+{% endblock %}
