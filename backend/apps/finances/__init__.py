@@ -2,28 +2,35 @@
 """
 Package initializer for the `finances` app.
 
-Responsibilities:
-- Provide `default_app_config` for compatibility with older Django versions
-  (harmless on modern Django where AppConfig auto-discovery is used).
-- Attempt to import `signals` and `tasks` (if present) so that signal handlers
-  and Celery task registrations are executed when the app is imported.
-  Import errors are caught to avoid breaking project startup during early development.
+This module attempts to import optional submodules (signals, tasks) only if they exist,
+so that application startup does not fail when those files are not present during early dev.
 """
 
-# For Django < 3.2 compatibility; harmless on newer versions.
+# Keep default_app_config only if you rely on old-style explicit config references.
 default_app_config = "apps.finances.apps.FinancesConfig"
 
-# Import signals and tasks if they exist to ensure handlers are registered.
-# Wrapped in try/except to avoid hard failures during development.
-try:
-    from . import signals  # noqa: F401
-except Exception:
-    # signals may not be implemented yet; skip quietly.
-    pass
+# Import optional modules only if present to avoid noisy ImportError logs.
+import importlib
+import importlib.util
+import logging
 
-try:
-    # If you have celery tasks in tasks.py, importing them ensures they are discovered.
-    from . import tasks  # noqa: F401
-except Exception:
-    # tasks module optional; skip on import errors.
-    pass
+logger = logging.getLogger(__name__)
+
+_pkg = __package__  # 'apps.finances'
+
+def _maybe_import(submodule_name: str) -> None:
+    full_name = f"{_pkg}.{submodule_name}"
+    try:
+        if importlib.util.find_spec(full_name) is not None:
+            importlib.import_module(full_name)
+            logger.debug("Imported %s", full_name)
+        else:
+            logger.debug("Optional module %s not found; skipping import", full_name)
+    except Exception:
+        # We deliberately swallow exceptions here to avoid breaking startup if optional modules fail.
+        # The error will be visible in debug logs inside those modules when executed directly.
+        logger.debug("Import of optional module %s failed; continuing. Exception suppressed.", full_name, exc_info=True)
+
+
+_maybe_import("signals")
+_maybe_import("tasks")

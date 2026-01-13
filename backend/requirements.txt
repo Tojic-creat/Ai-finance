@@ -8,3 +8,4 @@ django-storages
 django-cors-headers
 drf_yasg
 django-debug-toolbar
+whitenoise>=6.5
