@@ -1,0 +1,323 @@
+{# backend/templates/finances/transaction_form.html #} {% extends "base.html" %}
+{% load static %} {% block title %} {% if form.instance.pk %}Редактировать
+операцию{% else %}Новая операция{% endif %} — FinAssist {% endblock %} {% block
+header_title %} {% if form.instance.pk %}Редактировать операцию{% else %}Новая
+операция{% endif %} {% endblock %} {% block content %}
+<div class="max-w-3xl mx-auto">
+  <div class="bg-white border rounded-lg shadow-sm p-6">
+    {% if form.non_field_errors %}
+    <div
+      class="mb-4 text-sm text-red-700 bg-red-50 border border-red-100 p-3 rounded"
+    >
+      {{ form.non_field_errors }}
+    </div>
+    {% endif %}
+
+    <form
+      method="post"
+      enctype="multipart/form-data"
+      novalidate
+      id="transaction-form"
+    >
+      {% csrf_token %}
+
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <!-- amount -->
+        <div>
+          <label class="block text-sm font-medium text-gray-700">Сумма</label>
+          <div class="mt-1">
+            {{ form.amount|as_crispy_field|default:form.amount }}
+          </div>
+          {% if form.amount.errors %}
+          <p class="mt-1 text-xs text-red-600">
+            {{ form.amount.errors|join:", " }}
+          </p>
+          {% endif %}
+        </div>
+
+        <!-- date -->
+        <div>
+          <label class="block text-sm font-medium text-gray-700"
+            >Дата операции</label
+          >
+          <div class="mt-1">
+            {{ form.date|as_crispy_field|default:form.date }}
+          </div>
+          {% if form.date.errors %}
+          <p class="mt-1 text-xs text-red-600">
+            {{ form.date.errors|join:", " }}
+          </p>
+          {% endif %}
+        </div>
+
+        <!-- type -->
+        <div>
+          <label class="block text-sm font-medium text-gray-700">Тип</label>
+          <div class="mt-1">
+            {{ form.type|as_crispy_field|default:form.type }}
+          </div>
+          {% if form.type.errors %}
+          <p class="mt-1 text-xs text-red-600">
+            {{ form.type.errors|join:", " }}
+          </p>
+          {% endif %}
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+        <!-- account (source) -->
+        <div>
+          <label class="block text-sm font-medium text-gray-700">Счёт</label>
+          <div class="mt-1">
+            {{ form.account|as_crispy_field|default:form.account }}
+          </div>
+          {% if form.account.errors %}
+          <p class="mt-1 text-xs text-red-600">
+            {{ form.account.errors|join:", " }}
+          </p>
+          {% endif %}
+        </div>
+
+        <!-- transfer target (only shown if type == transfer) -->
+        <div id="transfer-target-wrapper" style="display: none">
+          <label class="block text-sm font-medium text-gray-700"
+            >Счёт-получатель (перевод)</label
+          >
+          <div class="mt-1">
+            {{ form.transfer_target|as_crispy_field|default:form.transfer_target
+            }}
+          </div>
+          {% if form.transfer_target.errors %}
+          <p class="mt-1 text-xs text-red-600">
+            {{ form.transfer_target.errors|join:", " }}
+          </p>
+          {% endif %}
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+        <!-- category -->
+        <div>
+          <label class="block text-sm font-medium text-gray-700"
+            >Категория</label
+          >
+          <div class="mt-1 flex gap-2">
+            <div class="flex-1">
+              {{ form.category|as_crispy_field|default:form.category }}
+            </div>
+
+            {# Small button to request ML suggestion via HTMX (endpoint should
+            return small fragment) #}
+            <div class="shrink-0">
+              <button
+                type="button"
+                class="px-3 py-2 border rounded text-sm hover:bg-gray-50"
+                hx-post="{% url 'analytics:classify_transaction' %}"
+                hx-include="#transaction-form"
+                hx-target="#ml-suggestions"
+                hx-swap="innerHTML"
+                title="Предложить категорию (ИИ)"
+              >
+                Предложить
+              </button>
+            </div>
+          </div>
+          {% if form.category.errors %}
+          <p class="mt-1 text-xs text-red-600">
+            {{ form.category.errors|join:", " }}
+          </p>
+          {% endif %}
+
+          <div id="ml-suggestions" class="mt-2"></div>
+        </div>
+
+        <!-- counterparty / merchant -->
+        <div>
+          <label class="block text-sm font-medium text-gray-700"
+            >Контрагент / Merchant</label
+          >
+          <div class="mt-1">
+            {{ form.counterparty|as_crispy_field|default:form.counterparty }}
+          </div>
+          {% if form.counterparty.errors %}
+          <p class="mt-1 text-xs text-red-600">
+            {{ form.counterparty.errors|join:", " }}
+          </p>
+          {% endif %}
+        </div>
+      </div>
+
+      <!-- tags and currency details -->
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+        <div>
+          <label class="block text-sm font-medium text-gray-700">Теги</label>
+          <div class="mt-1">
+            {{ form.tags|as_crispy_field|default:form.tags }}
+          </div>
+          {% if form.tags.errors %}
+          <p class="mt-1 text-xs text-red-600">
+            {{ form.tags.errors|join:", " }}
+          </p>
+          {% endif %}
+        </div>
+
+        <div>
+          <label class="block text-sm font-medium text-gray-700"
+            >Валюта операции</label
+          >
+          <div class="mt-1">
+            {{ form.currency|as_crispy_field|default:form.currency }}
+          </div>
+          {% if form.currency.errors %}
+          <p class="mt-1 text-xs text-red-600">
+            {{ form.currency.errors|join:", " }}
+          </p>
+          {% endif %}
+        </div>
+
+        <div>
+          <label class="block text-sm font-medium text-gray-700"
+            >Курс / Примечание (если треб.)</label
+          >
+          <div class="mt-1">
+            {{
+            form.exchange_rate_note|as_crispy_field|default:form.exchange_rate_note
+            }}
+          </div>
+          {% if form.exchange_rate_note.errors %}
+          <p class="mt-1 text-xs text-red-600">
+            {{ form.exchange_rate_note.errors|join:", " }}
+          </p>
+          {% endif %}
+          <p class="text-xs text-gray-400 mt-1">
+            Если валюта транзакции отличается от валюты счёта — зафиксируйте
+            курс/примечание.
+          </p>
+        </div>
+      </div>
+
+      <!-- comment and attachment -->
+      <div class="mt-4">
+        <label class="block text-sm font-medium text-gray-700"
+          >Комментарий</label
+        >
+        <div class="mt-1">
+          {{ form.comment|as_crispy_field|default:form.comment }}
+        </div>
+        {% if form.comment.errors %}
+        <p class="mt-1 text-xs text-red-600">
+          {{ form.comment.errors|join:", " }}
+        </p>
+        {% endif %}
+      </div>
+
+      <div class="mt-4">
+        <label class="block text-sm font-medium text-gray-700"
+          >Прикреплённый файл (jpg/png/pdf, ≤10MB)</label
+        >
+        <div class="mt-1">
+          {{ form.attachment|as_crispy_field|default:form.attachment }}
+        </div>
+        {% if form.attachment.errors %}
+        <p class="mt-1 text-xs text-red-600">
+          {{ form.attachment.errors|join:", " }}
+        </p>
+        {% endif %}
+      </div>
+
+      <!-- predicted category / user acceptance -->
+      <div
+        id="predicted-block"
+        class="mt-4 text-sm text-gray-600"
+        style="display: none"
+      >
+        <p>
+          ИИ предложил категорию: <strong id="predicted-category-name"></strong>
+          <button
+            type="button"
+            id="accept-prediction"
+            class="ml-2 text-xs text-green-600 hover:underline"
+          >
+            Принять
+          </button>
+        </p>
+      </div>
+
+      <!-- submit -->
+      <div class="mt-6 flex items-center gap-3">
+        <button
+          type="submit"
+          class="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700"
+        >
+          Сохранить операцию
+        </button>
+        <a
+          href="{% url 'finances:transaction_list' %}"
+          class="px-4 py-2 border rounded text-sm hover:bg-gray-50"
+          >Отменить</a
+        >
+
+        {% if form.instance.pk %}
+        <form
+          method="post"
+          action="{% url 'finances:transaction_delete' form.instance.pk %}"
+          class="inline-block ml-auto"
+          onsubmit="return confirm('Удалить операцию?')"
+        >
+          {% csrf_token %}
+          <button
+            type="submit"
+            class="px-3 py-2 text-sm bg-red-50 text-red-700 border rounded hover:bg-red-100"
+          >
+            Удалить
+          </button>
+        </form>
+        {% endif %}
+      </div>
+    </form>
+  </div>
+</div>
+
+{% block extra_js %}
+<script>
+  // Show/hide transfer target depending on selected type
+  function updateTransferVisibility() {
+    const typeField = document.querySelector('[name="type"]');
+    const transferWrapper = document.getElementById("transfer-target-wrapper");
+    if (!typeField || !transferWrapper) return;
+    const val =
+      typeField.value || typeField.options[typeField.selectedIndex].value;
+    if (val && val.toLowerCase().includes("transfer")) {
+      transferWrapper.style.display = "block";
+    } else {
+      transferWrapper.style.display = "none";
+    }
+  }
+  document.addEventListener("DOMContentLoaded", function () {
+    updateTransferVisibility();
+    const typeField = document.querySelector('[name="type"]');
+    if (typeField) {
+      typeField.addEventListener("change", updateTransferVisibility);
+    }
+
+    // HTMX response may insert a suggestion into #ml-suggestions.
+    // If suggestion contains data attributes suggestion-name and suggestion-id,
+    // allow quick accept into category field.
+    document.body.addEventListener("click", function (e) {
+      if (e.target && e.target.matches(".ml-suggestion-accept")) {
+        const name = e.target.getAttribute("data-name");
+        const pk = e.target.getAttribute("data-pk");
+        const categoryField = document.querySelector('[name="category"]');
+        if (categoryField) {
+          // try to set by value (assumes select uses pk)
+          categoryField.value = pk || name;
+        }
+      }
+    });
+
+    // Example: if backend returns JSON with predicted category via HTMX (swap),
+    // you could accept prediction automatically into the category input.
+    // This requires server fragment to set #ml-suggestions content appropriately.
+  });
+</script>
+{% endblock %} {% endblock %}

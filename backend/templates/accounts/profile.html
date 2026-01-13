@@ -1,0 +1,333 @@
+{# backend/templates/accounts/profile.html #} {% extends "base.html" %} {% load
+static %} {% block title %}Профиль — FinAssist{% endblock %} {% block
+header_title %}Профиль{% endblock %} {% block content %}
+<div class="max-w-4xl mx-auto space-y-6">
+  <!-- Profile card -->
+  <div class="bg-white border rounded-lg shadow-sm p-6">
+    <div class="flex items-center justify-between">
+      <div class="flex items-center space-x-4">
+        <img
+          src="{% static 'images/avatar-placeholder.png' %}"
+          alt="avatar"
+          class="w-16 h-16 rounded-full border"
+        />
+        <div>
+          <h2 class="text-lg font-semibold text-gray-800">
+            {{ user.get_full_name|default:user.username }}
+          </h2>
+          <div class="text-sm text-gray-500">{{ user.email }}</div>
+          <div class="text-xs text-gray-400 mt-1">
+            Зарегистрирован: {{ user.date_joined|date:"j F Y" }} {% if
+            user.last_login %} • Последний вход: {{ user.last_login|date:"j F Y,
+            H:i" }}{% endif %}
+          </div>
+        </div>
+      </div>
+
+      <div class="flex items-center space-x-2">
+        <a
+          href="{% url 'accounts:edit' %}"
+          class="inline-flex items-center px-3 py-2 border rounded hover:bg-gray-50 text-sm"
+        >
+          Редактировать
+        </a>
+        <a
+          href="{% url 'accounts:change_password' %}"
+          class="inline-flex items-center px-3 py-2 border rounded hover:bg-gray-50 text-sm"
+        >
+          Сменить пароль
+        </a>
+        <form method="post" action="{% url 'logout' %}">
+          {% csrf_token %}
+          <button
+            type="submit"
+            class="inline-flex items-center px-3 py-2 bg-red-50 text-red-700 border rounded text-sm hover:bg-red-100"
+          >
+            Выйти
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Linked accounts & balances -->
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <section class="bg-white border rounded-lg shadow-sm p-6">
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="text-sm font-medium text-gray-700">Счёта</h3>
+        <a
+          href="{% url 'finances:accounts_create' %}"
+          class="text-sm text-indigo-600"
+          >Добавить счёт</a
+        >
+      </div>
+
+      {% if accounts %}
+      <ul class="space-y-3">
+        {% for acc in accounts %}
+        <li class="flex items-center justify-between border rounded p-3">
+          <div>
+            <div class="font-medium text-gray-800">{{ acc.name }}</div>
+            <div class="text-xs text-gray-500">
+              {{ acc.type }} • {{ acc.currency }}
+            </div>
+          </div>
+          <div class="text-right">
+            <div class="font-semibold text-gray-900">{{ acc.balance }}</div>
+            <div class="text-xs text-gray-400">
+              Порог: {{ acc.alert_threshold|default:"—" }}
+            </div>
+          </div>
+        </li>
+        {% endfor %}
+      </ul>
+      {% else %}
+      <p class="text-sm text-gray-500">
+        У вас ещё нет счётов.
+        <a href="{% url 'finances:accounts_create' %}" class="text-indigo-600"
+          >Создать счёт</a
+        >
+      </p>
+      {% endif %}
+    </section>
+
+    <!-- Notifications & privacy -->
+    <section class="bg-white border rounded-lg shadow-sm p-6">
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="text-sm font-medium text-gray-700">
+          Уведомления и приватность
+        </h3>
+        <a
+          href="{% url 'accounts:notification_settings' %}"
+          class="text-sm text-indigo-600"
+          >Настроить</a
+        >
+      </div>
+
+      <div class="space-y-3 text-sm text-gray-700">
+        <div>
+          <div class="text-xs text-gray-500">Каналы уведомлений</div>
+          <div class="mt-1">
+            Email:
+            <span class="font-medium"
+              >{{ notif_settings.email|yesno:"включено,выключено" }}</span
+            ><br />
+            Push:
+            <span class="font-medium"
+              >{{ notif_settings.push|yesno:"включено,выключено" }}</span
+            ><br />
+            SMS:
+            <span class="font-medium"
+              >{{ notif_settings.sms|yesno:"включено,выключено" }}</span
+            >
+          </div>
+        </div>
+
+        <div>
+          <div class="text-xs text-gray-500">
+            Приватность транзакций (по умолчанию)
+          </div>
+          <div class="mt-1 text-sm text-gray-600">
+            {{ privacy.default_transaction_visibility|default:"masked" |
+            capfirst }}
+            <div class="text-xs text-gray-400 mt-1">
+              Опции: full (полный), masked (маскировать детали), hidden
+              (скрыть).
+            </div>
+          </div>
+        </div>
+
+        <div class="pt-2">
+          <form method="post" action="{% url 'accounts:consent_ml_toggle' %}">
+            {% csrf_token %}
+            <div class="flex items-start space-x-3">
+              <div>
+                <input
+                  id="consent_ml"
+                  name="consent_ml"
+                  type="checkbox"
+                  {%
+                  if
+                  consent_ml
+                  %}checked{%
+                  endif
+                  %}
+                  class="rounded border-gray-300 mt-1"
+                />
+              </div>
+              <div class="text-sm">
+                <label for="consent_ml" class="font-medium text-gray-800"
+                  >Согласие на анализ транзакций ИИ</label
+                >
+                <div class="text-xs text-gray-500 mt-1">
+                  Разрешить использовать анонимизированные / агрегированные
+                  данные транзакций для ML-классификации и рекомендаций. Можно
+                  отменить в любой момент.
+                </div>
+              </div>
+            </div>
+
+            <div class="mt-4">
+              <button
+                type="submit"
+                class="px-3 py-2 text-sm bg-indigo-600 text-white rounded hover:bg-indigo-700"
+              >
+                Сохранить
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <!-- Family / Team -->
+  <div class="bg-white border rounded-lg shadow-sm p-6">
+    <div class="flex items-center justify-between mb-4">
+      <h3 class="text-sm font-medium text-gray-700">Семейные группы</h3>
+      <a href="{% url 'family:create' %}" class="text-sm text-indigo-600"
+        >Создать группу</a
+      >
+    </div>
+
+    {% if family_groups %}
+    <ul class="space-y-3 text-sm">
+      {% for g in family_groups %}
+      <li class="flex items-center justify-between border rounded p-3">
+        <div>
+          <div class="font-medium">{{ g.name }}</div>
+          <div class="text-xs text-gray-500">Роль: {{ g.role|capfirst }}</div>
+        </div>
+        <div class="text-right">
+          <a
+            href="{% url 'family:detail' g.id %}"
+            class="text-indigo-600 text-sm"
+            >Управлять</a
+          >
+        </div>
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <p class="text-sm text-gray-500">
+      Вы не состоите в семейных группах. Пригласите участников или создайте
+      группу.
+    </p>
+    {% endif %}
+  </div>
+
+  <!-- Data & Security -->
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <section class="bg-white border rounded-lg shadow-sm p-6">
+      <h3 class="text-sm font-medium text-gray-700 mb-3">Экспорт данных</h3>
+      <p class="text-sm text-gray-500 mb-4">
+        Экспортируйте свои данные (транзакции, счёта, настройки) в формате
+        CSV/PDF по запросу.
+      </p>
+      <form method="post" action="{% url 'accounts:export_data' %}">
+        {% csrf_token %}
+        <div class="flex gap-2">
+          <select name="format" class="rounded border-gray-200 p-2 text-sm">
+            <option value="csv">CSV</option>
+            <option value="pdf">PDF</option>
+            <option value="json">JSON</option>
+          </select>
+          <button
+            type="submit"
+            class="px-3 py-2 bg-indigo-600 text-white rounded text-sm hover:bg-indigo-700"
+          >
+            Запросить экспорт
+          </button>
+        </div>
+        <div class="text-xs text-gray-400 mt-2">
+          Экспорт будет сформирован и отправлен на ваш email.
+        </div>
+      </form>
+    </section>
+
+    <section class="bg-white border rounded-lg shadow-sm p-6">
+      <h3 class="text-sm font-medium text-gray-700 mb-3">Безопасность</h3>
+      <div class="space-y-3 text-sm text-gray-700">
+        <div>
+          <div class="font-medium">Двухфакторная аутентификация (2FA)</div>
+          <div class="text-xs text-gray-500">
+            Статус: {% if twofa_enabled %}<span class="text-green-600"
+              >Включена</span
+            >{% else %}<span class="text-gray-500">Выключена</span>{% endif %}
+          </div>
+          <div class="mt-2">
+            <a
+              href="{% url 'accounts:2fa_manage' %}"
+              class="text-indigo-600 text-sm"
+              >Управлять 2FA</a
+            >
+          </div>
+        </div>
+
+        <div>
+          <div class="font-medium">API токены</div>
+          <div class="text-xs text-gray-500">
+            Создавайте персональные токены для интеграций (если включено).
+          </div>
+          <div class="mt-2">
+            <a
+              href="{% url 'accounts:api_tokens' %}"
+              class="text-indigo-600 text-sm"
+              >Перейти к токенам</a
+            >
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <!-- Danger zone -->
+  <div class="bg-white border rounded-lg shadow-sm p-6">
+    <h3 class="text-sm font-medium text-red-700 mb-3">Опасная зона</h3>
+    <p class="text-sm text-gray-600 mb-4">
+      Удаление аккаунта окончательно удалит ваши данные (включая транзакции,
+      цели и настройки). Экспортируйте данные заранее, если нужно.
+    </p>
+
+    <form
+      method="post"
+      action="{% url 'accounts:delete' %}"
+      onsubmit="return confirmDeleteAccount(event)"
+    >
+      {% csrf_token %}
+      <div class="flex items-center gap-3">
+        <input
+          name="confirm"
+          type="text"
+          placeholder="Введите DELETE чтобы подтвердить"
+          class="rounded border-gray-200 p-2 text-sm w-80"
+          required
+        />
+        <button
+          type="submit"
+          class="px-3 py-2 bg-red-600 text-white rounded hover:bg-red-700 text-sm"
+        >
+          Удалить аккаунт
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+{% endblock %} {% block scripts %} {{ block.super }}
+<script>
+  function confirmDeleteAccount(e) {
+    const input = e.target.querySelector('input[name="confirm"]');
+    if (!input) return false;
+    if (input.value.trim() !== "DELETE") {
+      alert(
+        'Введите точное слово "DELETE" в поле подтверждения, чтобы удалить аккаунт.'
+      );
+      return false;
+    }
+    return confirm(
+      "Вы уверены? Это действие необратимо и удалит все ваши данные."
+    );
+  }
+</script>
+{% endblock %}

@@ -1,0 +1,145 @@
+{# backend/templates/finances/import_upload.html #} {% extends "base.html" %} {%
+load static %} {% block title %}Импорт транзакций (CSV) — FinAssist{% endblock
+%} {% block header_title %}Импорт транзакций (CSV){% endblock %} {% block
+content %}
+<div class="max-w-4xl mx-auto">
+  <div class="bg-white border rounded-lg shadow-sm p-6">
+    <p class="text-sm text-gray-600 mb-4">
+      Загрузите CSV-файл по нашему шаблону. Система попытается сопоставить
+      колонки автоматически и покажет превью до окончательного импорта.
+    </p>
+
+    {% if messages %}
+    <div class="mb-4">
+      {% for message in messages %}
+      <div class="p-3 rounded {{ message.tags }} mb-2">{{ message }}</div>
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    <form
+      id="csv-upload-form"
+      method="post"
+      enctype="multipart/form-data"
+      class="space-y-4"
+    >
+      {% csrf_token %}
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <label class="block text-sm font-medium text-gray-700"
+            >CSV-файл</label
+          >
+          <div class="mt-1">
+            <input
+              name="file"
+              type="file"
+              accept=".csv,text/csv"
+              required
+              class="block w-full text-sm text-gray-700 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-gray-100 hover:file:bg-gray-200"
+            />
+          </div>
+          <p class="text-xs text-gray-400 mt-1">
+            Допустимые форматы: .csv. Максимальный размер файла зависит от
+            настроек сервера.
+          </p>
+        </div>
+
+        <div>
+          <label class="block text-sm font-medium text-gray-700"
+            >Параметры</label
+          >
+          <div class="mt-1 grid grid-cols-1 gap-2">
+            <select
+              name="delimiter"
+              class="block w-full py-2 px-3 border rounded"
+            >
+              <option value=",">Разделитель: запятая (,)</option>
+              <option value=";">Разделитель: точка с запятой (;)</option>
+              <option value="\t">Разделитель: табуляция</option>
+            </select>
+
+            <label class="inline-flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                name="has_header"
+                checked
+                class="rounded"
+              />
+              Файл содержит заголовок (header)
+            </label>
+
+            <label class="inline-flex items-center gap-2 text-sm">
+              <input type="checkbox" name="skip_duplicates" class="rounded" />
+              Пропускать дубликаты при импорте
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-3 mt-2">
+        <button
+          type="button"
+          class="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700"
+          hx-post="{% url 'finances:import_preview' %}"
+          hx-include="#csv-upload-form"
+          hx-target="#preview-area"
+          hx-swap="innerHTML"
+        >
+          Показать превью
+        </button>
+
+        <button
+          type="submit"
+          formaction="{% url 'finances:import_run' %}"
+          class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
+        >
+          Импортировать (выполнить)
+        </button>
+
+        <a
+          href="{% static 'finances/sample_import.csv' %}"
+          target="_blank"
+          class="text-sm underline ml-auto"
+          >Скачать пример шаблона CSV</a
+        >
+      </div>
+    </form>
+
+    <hr class="my-6" />
+
+    <div id="preview-area" class="prose-sm text-sm text-gray-700">
+      {# HTMX вставит сюда превью сопоставления/строки файла #}
+      <p class="text-gray-400">
+        Здесь появится превью после загрузки CSV (нажмите «Показать превью»).
+      </p>
+    </div>
+
+    <div class="mt-6">
+      <h3 class="text-sm font-semibold mb-2">Рекомендации по шаблону CSV</h3>
+      <ul class="list-disc list-inside text-sm text-gray-600 space-y-1">
+        <li>
+          Обязательные колонки (рекомендуется в header): <code>date</code>,
+          <code>amount</code>, <code>account</code>, <code>type</code>.
+        </li>
+        <li>
+          Колонки для лучшей категоризации: <code>counterparty</code>,
+          <code>description</code>, <code>currency</code>.
+        </li>
+        <li>
+          Формат даты: <code>YYYY-MM-DD</code> или распознаваемые локальные
+          форматы. При ошибке — строки попадут в раздел «ошибки превью».
+        </li>
+        <li>
+          Для переводов между своими счетами добавьте поле
+          <code>transfer_target</code> и укажите внутреннее
+          название/идентификатор счёта.
+        </li>
+        <li>
+          Если используете разные валюты, указывайте колонку
+          <code>currency</code> и (опционально) <code>exchange_rate</code>.
+        </li>
+      </ul>
+    </div>
+  </div>
+</div>
+{% endblock %}
