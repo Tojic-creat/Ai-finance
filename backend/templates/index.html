@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>FinAssist — персональный финансовый помощник</title>
+  <meta name="description" content="FinAssist — управляйте счетами, транзакциями и достигайте финансовых целей. Простая интеграция, приватность и ML-подсказки." />
+
+  <!-- Если у вас уже есть /static/css/tailwind.css, подключаем его -->
+  <link rel="stylesheet" href="/static/css/tailwind.css" />
+  <!-- Небольшой inline fallback стили тоже можно оставить -->
+  <style>
+    /* минимальный fallback при отсутствии tailwind */
+    body { font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial; color:#111827; margin:0; background:#f8fafc; }
+    .container{ max-width:1100px; margin:48px auto; padding:16px; }
+    a.button{ display:inline-block; padding:10px 16px; border-radius:8px; text-decoration:none; border:1px solid #1f2937; background:#fff; color:#111827; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header class="mb-8">
+      <h1 class="text-3xl font-bold">FinAssist</h1>
+      <p class="mt-2 text-sm text-gray-600">Персональный финансовый помощник — счёта, транзакции, цели, аналитика и рекомендации.</p>
+    </header>
+
+    <main>
+      <section class="mb-8">
+        <h2 class="text-xl font-semibold">Быстрый старт</h2>
+        <p class="mt-2">Перейти в основной интерфейс или использовать API:</p>
+        <p class="mt-4">
+          <a class="button" href="/finances/">Открыть Finances (UI / placeholder)</a>
+          &nbsp;
+          <a class="button" href="/admin/">Админ-панель</a>
+          &nbsp;
+          <a class="button" href="/swagger/">Документация API (Swagger)</a>
+        </p>
+      </section>
+
+      <section class="mb-8">
+        <h3 class="font-medium">Что уже настроено</h3>
+        <ul class="mt-2 text-sm text-gray-700">
+          <li>✅ БД (Postgres), Redis, Celery (worker)</li>
+          <li>✅ API (DRF) — аутентификация через Token доступна</li>
+          <li>✅ Admin: /admin/</li>
+        </ul>
+      </section>
+
+      <section class="mb-8">
+        <h3 class="font-medium">Полезные ссылки</h3>
+        <ul class="mt-2 text-sm">
+          <li>/finances/ — главный раздел (json placeholder / future HTML)</li>
+          <li>/api/ — корень API</li>
+          <li>/api/accounts/ — управление счетами (требует auth token)</li>
+        </ul>
+      </section>
+
+      <footer class="mt-12 text-xs text-gray-500">
+        <p>Dev build — не для продакшна. Для вопросов/ошибок — смотрите логи контейнера: <code>docker compose logs web</code>.</p>
+      </footer>
+    </main>
+  </div>
+</body>
+</html>
