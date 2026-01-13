@@ -3,8 +3,10 @@
 Root URL configuration for FinAssist.
 
 - Admin UI at /admin/
-- API mounted under /api/
 - Health check at /health/
+- Public landing page at /
+- Finances JSON placeholder at /finances/
+- API mounted under /api/
 - (Optional) Swagger / Redoc UI when drf-yasg is available and DEBUG=True
 - Serves static files in DEBUG via django.conf.urls.static.static
 """
@@ -15,29 +17,53 @@ from django.http import JsonResponse
 from django.urls import include, path, re_path
 from django.views.generic import TemplateView
 
-# Health check view (simple, safe)
-
-
 def health_check(request):
     """
     Basic health check used by uptime monitors / load balancers.
     Returns 200 OK when Django is up; can be extended to probe DB/Redis.
     """
-    return JsonResponse({"status": "ok", "django_settings": settings.ENVIRONMENT if getattr(settings, "ENVIRONMENT", None) else "unknown"})
+    return JsonResponse({
+        "status": "ok",
+        "django_settings": settings.ENVIRONMENT if getattr(settings, "ENVIRONMENT", None) else "unknown"
+    })
+
+
+def finances_home(request):
+    """
+    Public "home" for the finances area — lightweight JSON page.
+    Keeps /finances/ available as a public placeholder and avoids redirecting
+    anonymous users into auth-protected DRF viewsets (which results in 403).
+    """
+    return JsonResponse({
+        "app": "FinAssist",
+        "message": "This endpoint is a placeholder for the Finances web UI.",
+        "links": {
+            "admin": "/admin/",
+            "api_root": "/api/",
+            "api_finances": "/api/accounts/ (and other /api/ endpoints)",
+        },
+        "note": "API endpoints require authentication (403 if unauthenticated)."
+    })
 
 
 urlpatterns = [
     path("admin/", admin.site.urls),
     path("health/", health_check, name="health"),
-    # Frontend entry (could be dashboards / home page rendered by Django templates)
+
+    # Root: render landing page (index.html). Put your landing template at backend/templates/index.html
     path("", TemplateView.as_view(template_name="index.html"), name="home"),
-    # API: include app routes (each app should expose its own urls.py)
+
+    # Keep a simple public entry point for the web UI (JSON placeholder)
+    path("finances/", finances_home, name="finances-home"),
+
+    # API: include the finances app router (keeps API under /api/...)
     path("api/", include(("apps.finances.urls", "finances"), namespace="api-finances")),
-    # Auth endpoints from DRF (optional)
+
+    # DRF browsable auth (login/logout)
     path("api-auth/", include("rest_framework.urls", namespace="rest_framework")),
 ]
 
-# API schema / docs (drf-yasg) — enabled in DEBUG or if explicitly allowed via settings
+# drf-yasg docs (swagger/redoc) — enabled in DEBUG or via ENABLE_API_DOCS
 if settings.DEBUG or getattr(settings, "ENABLE_API_DOCS", False):
     try:
         from drf_yasg import openapi
@@ -56,12 +82,9 @@ if settings.DEBUG or getattr(settings, "ENABLE_API_DOCS", False):
         )
 
         urlpatterns += [
-            re_path(r"^swagger(?P<format>\.json|\.yaml)$", schema_view.without_ui(
-                cache_timeout=0), name="schema-json"),
-            path("swagger/", schema_view.with_ui("swagger",
-                 cache_timeout=0), name="schema-swagger-ui"),
-            path("redoc/", schema_view.with_ui("redoc",
-                 cache_timeout=0), name="schema-redoc"),
+            re_path(r"^swagger(?P<format>\.json|\.yaml)$", schema_view.without_ui(cache_timeout=0), name="schema-json"),
+            path("swagger/", schema_view.with_ui("swagger", cache_timeout=0), name="schema-swagger-ui"),
+            path("redoc/", schema_view.with_ui("redoc", cache_timeout=0), name="schema-redoc"),
         ]
     except Exception:
         # drf-yasg not installed — skip docs silently
@@ -71,7 +94,5 @@ if settings.DEBUG or getattr(settings, "ENABLE_API_DOCS", False):
 if settings.DEBUG:
     from django.conf.urls.static import static
 
-    urlpatterns += static(settings.STATIC_URL,
-                          document_root=getattr(settings, "STATIC_ROOT", None))
-    urlpatterns += static(getattr(settings, "MEDIA_URL", "/media/"),
-                          document_root=getattr(settings, "MEDIA_ROOT", None))
+    urlpatterns += static(settings.STATIC_URL, document_root=getattr(settings, "STATIC_ROOT", None))
+    urlpatterns += static(getattr(settings, "MEDIA_URL", "/media/"), document_root=getattr(settings, "MEDIA_ROOT", None))
