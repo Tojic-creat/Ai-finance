@@ -1,0 +1,414 @@
+# infra/k8s/deployment.yaml
+# Унифицированный манифест: namespace, secrets, config, pvcs, deployments, services, ingress, hpa
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: finassist
+---
+# Secrets (пример; замените base64-значения реальными секретами)
+apiVersion: v1
+kind: Secret
+metadata:
+  name: finassist-secrets
+  namespace: finassist
+type: Opaque
+data:
+  # echo -n "supersecret" | base64
+  DJANGO_SECRET_KEY: "REPLACE_BASE64_DJANGO_SECRET"
+  POSTGRES_PASSWORD: "REPLACE_BASE64_POSTGRES_PASSWORD"
+  POSTGRES_USER: "cm9vdA==" # 'root' example (base64) - replace if needed
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: finassist-config
+  namespace: finassist
+data:
+  # Общие переменные окружения (можно расширять)
+  DJANGO_SETTINGS_MODULE: "backend.settings"
+  # имя сервиса БД/Redis внутри кластера
+  POSTGRES_HOST: "postgres"
+  POSTGRES_DB: "finassist"
+  REDIS_HOST: "redis"
+  ML_SERVICE_HOST: "ml-service"
+  ML_SERVICE_PORT: "8001"
+  # application host used by Django for building absolute urls (replace as needed)
+  ALLOWED_HOSTS: "finassist.example.com"
+---
+# PersistentVolumeClaim for Postgres data
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: postgres-pvc
+  namespace: finassist
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+  storageClassName: standard
+---
+# Postgres Deployment + Service
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postgres
+  namespace: finassist
+  labels:
+    app: postgres
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgres
+  template:
+    metadata:
+      labels:
+        app: postgres
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:15-alpine
+          ports:
+            - containerPort: 5432
+          env:
+            - name: POSTGRES_DB
+              value: "finassist"
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: finassist-secrets
+                  key: POSTGRES_USER
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: finassist-secrets
+                  key: POSTGRES_PASSWORD
+          volumeMounts:
+            - name: pgdata
+              mountPath: /var/lib/postgresql/data
+      volumes:
+        - name: pgdata
+          persistentVolumeClaim:
+            claimName: postgres-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres
+  namespace: finassist
+spec:
+  selector:
+    app: postgres
+  ports:
+    - port: 5432
+      targetPort: 5432
+      protocol: TCP
+  type: ClusterIP
+---
+# Redis Deployment + Service (for cache & celery broker)
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redis
+  namespace: finassist
+  labels:
+    app: redis
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: redis
+  template:
+    metadata:
+      labels:
+        app: redis
+    spec:
+      containers:
+        - name: redis
+          image: redis:6-alpine
+          args: ["redis-server", "--appendonly", "yes"]
+          ports:
+            - containerPort: 6379
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis
+  namespace: finassist
+spec:
+  selector:
+    app: redis
+  ports:
+    - port: 6379
+      targetPort: 6379
+  type: ClusterIP
+---
+# Backend (Django) Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+  namespace: finassist
+  labels:
+    app: backend
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: backend
+  template:
+    metadata:
+      labels:
+        app: backend
+    spec:
+      containers:
+        - name: backend
+          # Замените image на ваш собранный образ с Django+Gunicorn
+          image: your-registry/finassist-backend:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8000
+              name: http
+          env:
+            - name: DATABASE_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: finassist-config
+                  key: POSTGRES_HOST
+            - name: DATABASE_NAME
+              valueFrom:
+                configMapKeyRef:
+                  name: finassist-config
+                  key: POSTGRES_DB
+            - name: DATABASE_USER
+              valueFrom:
+                secretKeyRef:
+                  name: finassist-secrets
+                  key: POSTGRES_USER
+            - name: DATABASE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: finassist-secrets
+                  key: POSTGRES_PASSWORD
+            - name: REDIS_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: finassist-config
+                  key: REDIS_HOST
+            - name: ML_SERVICE_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: finassist-config
+                  key: ML_SERVICE_HOST
+            - name: ML_SERVICE_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: finassist-config
+                  key: ML_SERVICE_PORT
+            - name: DJANGO_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: finassist-secrets
+                  key: DJANGO_SECRET_KEY
+            - name: ALLOWED_HOSTS
+              valueFrom:
+                configMapKeyRef:
+                  name: finassist-config
+                  key: ALLOWED_HOSTS
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 6
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 30
+            periodSeconds: 20
+            timeoutSeconds: 3
+            failureThreshold: 5
+          resources:
+            requests:
+              cpu: "200m"
+              memory: "300Mi"
+            limits:
+              cpu: "1000m"
+              memory: "1Gi"
+          # При необходимости добавьте volumeMounts: static files, media и т.д.
+      # imagePullSecrets: - name: regcred  # если нужен приватный репозиторий
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend
+  namespace: finassist
+spec:
+  selector:
+    app: backend
+  ports:
+    - port: 80
+      targetPort: 8000
+      protocol: TCP
+  type: ClusterIP
+---
+# ML service (FastAPI) Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ml-service
+  namespace: finassist
+  labels:
+    app: ml-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ml-service
+  template:
+    metadata:
+      labels:
+        app: ml-service
+    spec:
+      containers:
+        - name: ml-service
+          image: your-registry/finassist-ml:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8001
+              name: http-ml
+          env:
+            - name: MODEL_PATH
+              value: "/app/models/pipeline.joblib"
+            - name: LOG_LEVEL
+              value: "info"
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8001
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 3
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8001
+            initialDelaySeconds: 15
+            periodSeconds: 20
+            timeoutSeconds: 3
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "200Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ml-service
+  namespace: finassist
+spec:
+  selector:
+    app: ml-service
+  ports:
+    - port: 8001
+      targetPort: 8001
+      protocol: TCP
+  type: ClusterIP
+---
+# Ingress (example) - replace host/tls with your real domain & certs
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: finassist-ingress
+  namespace: finassist
+  annotations:
+    kubernetes.io/ingress.class: "nginx"
+    nginx.ingress.kubernetes.io/proxy-body-size: "10m"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "60"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "60"
+spec:
+  tls:
+    - hosts:
+        - finassist.example.com
+      secretName: finassist-tls-secret # create TLS secret or use cert-manager
+  rules:
+    - host: finassist.example.com
+      http:
+        paths:
+          - path: /ml
+            pathType: Prefix
+            backend:
+              service:
+                name: ml-service
+                port:
+                  number: 8001
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: backend
+                port:
+                  number: 80
+---
+# Horizontal Pod Autoscaler for backend
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: backend-hpa
+  namespace: finassist
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: backend
+  minReplicas: 2
+  maxReplicas: 6
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 50
+---
+# Horizontal Pod Autoscaler for ML service
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: ml-service-hpa
+  namespace: finassist
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: ml-service
+  minReplicas: 1
+  maxReplicas: 3
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 50
+---
+# Optional: PodDisruptionBudget for backend - keep availability during maintenance
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: backend-pdb
+  namespace: finassist
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: backend

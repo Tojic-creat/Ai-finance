@@ -1,0 +1,98 @@
+# infra/k8s/service.yaml
+# Services for the finassist cluster components
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: finassist
+---
+# Backend service - internal ClusterIP, routed from Ingress
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend
+  namespace: finassist
+  labels:
+    app: backend
+spec:
+  type: ClusterIP
+  selector:
+    app: backend
+  ports:
+    - name: http
+      port: 80
+      targetPort: 8000
+      protocol: TCP
+---
+# ML service (FastAPI) - internal ClusterIP, accessible at /ml via Ingress
+apiVersion: v1
+kind: Service
+metadata:
+  name: ml-service
+  namespace: finassist
+  labels:
+    app: ml-service
+spec:
+  type: ClusterIP
+  selector:
+    app: ml-service
+  ports:
+    - name: http-ml
+      port: 8001
+      targetPort: 8001
+      protocol: TCP
+---
+# Postgres - ClusterIP for internal DB connections
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres
+  namespace: finassist
+  labels:
+    app: postgres
+spec:
+  type: ClusterIP
+  selector:
+    app: postgres
+  ports:
+    - name: postgres
+      port: 5432
+      targetPort: 5432
+      protocol: TCP
+---
+# Redis - ClusterIP for cache / broker
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis
+  namespace: finassist
+  labels:
+    app: redis
+spec:
+  type: ClusterIP
+  selector:
+    app: redis
+  ports:
+    - name: redis
+      port: 6379
+      targetPort: 6379
+      protocol: TCP
+---
+# Optional headless service for StatefulSets / direct DNS (uncomment if needed)
+# Useful when using StatefulSet for Postgres / clustering
+# apiVersion: v1
+# kind: Service
+# metadata:
+#   name: postgres-headless
+#   namespace: finassist
+#   labels:
+#     app: postgres
+# spec:
+#   clusterIP: None
+#   selector:
+#     app: postgres
+#   ports:
+#     - name: postgres
+#       port: 5432
+#       targetPort: 5432
+#       protocol: TCP
