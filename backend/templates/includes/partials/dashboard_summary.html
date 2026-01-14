@@ -1,0 +1,264 @@
+{# backend/templates/includes/partials/dashboard_summary.html #} {# Итоговый
+summary-блок для дашборда. Ожидаемые контекстные переменные (рекомендация): -
+total_balance : Decimal | общее агрегированное сальдо (строка/число) - currency
+: строка (символ или код валюты) — например "USD" или "₽" - period_label :
+строка для подписи периода (например "за этот месяц") - income : сумма доходов
+за период - expenses : сумма расходов за период - accounts : queryset/list
+счетов с полями {name, balance, currency, low_balance_threshold, id} - alerts :
+список строк предупреждений (например про low balance) - goals : список целей с
+{title, target_amount, current_amount, progress_percent} - recent_transactions :
+список транзакций {date, account_name, amount, type, category, id} -
+quick_actions_urls : dict с ключами
+("new_account","new_transaction","import_csv") #}
+
+<div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+  <!-- Summary tiles -->
+  <div class="col-span-1 sm:col-span-2 lg:col-span-1">
+    <div class="bg-white rounded-2xl shadow-sm p-4">
+      <div class="flex items-center justify-between">
+        <div>
+          <h2 class="text-sm text-gray-500">Общий баланс</h2>
+          <div class="mt-1 flex items-baseline gap-2">
+            <span class="text-3xl font-semibold">
+              {{ total_balance|default:"0.00" }}
+            </span>
+            {% if currency %}
+            <span class="text-sm text-gray-500">{{ currency }}</span>
+            {% endif %}
+          </div>
+          {% if period_label %}
+          <p class="text-xs text-gray-400 mt-1">{{ period_label }}</p>
+          {% endif %}
+        </div>
+
+        <div class="flex flex-col items-end gap-2">
+          <button
+            hx-get="{% url 'finances:dashboard_summary_refresh' %}"
+            hx-swap="outerHTML"
+            class="inline-flex items-center gap-2 px-3 py-1 rounded-full border text-sm text-gray-700 hover:bg-gray-50"
+            title="Обновить"
+          >
+            <svg
+              class="w-4 h-4"
+              viewBox="0 0 24 24"
+              fill="none"
+              aria-hidden="true"
+            >
+              <path
+                d="M20 12a8 8 0 10-2.34 5.66L20 20"
+                stroke="currentColor"
+                stroke-width="1.5"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+              <path
+                d="M20 4v6h-6"
+                stroke="currentColor"
+                stroke-width="1.5"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+            </svg>
+            Обновить
+          </button>
+
+          <a
+            href="{% url 'finances:transactions' %}"
+            class="text-xs text-indigo-600 hover:underline"
+            >Посмотреть все транзакции →</a
+          >
+        </div>
+      </div>
+
+      <!-- Income / Expenses -->
+      <div class="mt-4 grid grid-cols-2 gap-3">
+        <div class="bg-gray-50 rounded-lg p-3">
+          <div class="text-xs text-gray-500">Доходы</div>
+          <div class="mt-1 text-lg font-medium">
+            {{ income|default:"0.00" }} {% if currency %}{{ currency }}{% endif
+            %}
+          </div>
+        </div>
+        <div class="bg-gray-50 rounded-lg p-3">
+          <div class="text-xs text-gray-500">Расходы</div>
+          <div class="mt-1 text-lg font-medium text-red-600">
+            {{ expenses|default:"0.00" }} {% if currency %}{{ currency }}{%
+            endif %}
+          </div>
+        </div>
+      </div>
+
+      {# Alerts (например: низкий баланс) #} {% if alerts %}
+      <div class="mt-4 space-y-2">
+        {% for alert in alerts %}
+        <div
+          class="flex items-start gap-2 rounded-md bg-yellow-50 border border-yellow-100 p-3 text-sm text-yellow-800"
+        >
+          <svg
+            class="w-5 h-5 shrink-0"
+            viewBox="0 0 24 24"
+            fill="none"
+            aria-hidden="true"
+          >
+            <path
+              d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94A2 2 0 0021.82 18L13.29 3.86a2 2 0 00-3.4 0z"
+              stroke="currentColor"
+              stroke-width="1.2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+            <path
+              d="M12 9v4"
+              stroke="currentColor"
+              stroke-width="1.2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+            <path
+              d="M12 17h.01"
+              stroke="currentColor"
+              stroke-width="1.2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+          </svg>
+          <div>{{ alert }}</div>
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Accounts list -->
+  <div class="col-span-1">
+    <div class="bg-white rounded-2xl shadow-sm p-4 h-full flex flex-col">
+      <div class="flex items-center justify-between">
+        <h3 class="text-sm font-semibold text-gray-700">Счета</h3>
+        <a
+          href="{{ quick_actions_urls.new_account|default:'#' }}"
+          class="text-xs text-indigo-600 hover:underline"
+          >Добавить →</a
+        >
+      </div>
+
+      <div class="mt-3 space-y-2 flex-1 overflow-auto">
+        {% if accounts %} {% for acc in accounts %}
+        <div
+          class="flex items-center justify-between gap-3 p-2 rounded-md hover:bg-gray-50"
+        >
+          <div>
+            <div class="text-sm font-medium text-gray-800">{{ acc.name }}</div>
+            <div class="text-xs text-gray-400">id: {{ acc.id }}</div>
+          </div>
+          <div class="text-right">
+            <div class="text-sm font-semibold">
+              {{ acc.balance|default:"0.00" }} {% if acc.currency %}{{
+              acc.currency }}{% elif currency %}{{ currency }}{% endif %}
+            </div>
+            {% if acc.low_balance_threshold %} {% if acc.balance <=
+            acc.low_balance_threshold %}
+            <div class="text-xs text-red-600">Ниже порога</div>
+            {% else %}
+            <div class="text-xs text-gray-400">
+              Порог: {{ acc.low_balance_threshold }}
+            </div>
+            {% endif %} {% endif %}
+          </div>
+        </div>
+        {% endfor %} {% else %}
+        <div class="text-sm text-gray-500 p-3">
+          Нет доступных счетов. Создайте первый счёт.
+        </div>
+        {% endif %}
+      </div>
+
+      <div class="mt-3 flex items-center gap-2">
+        <a
+          href="{{ quick_actions_urls.new_account|default:'#' }}"
+          class="flex-1 inline-block text-center px-3 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 text-sm"
+          >Новый счёт</a
+        >
+        <a
+          href="{{ quick_actions_urls.import_csv|default:'#' }}"
+          class="px-3 py-2 border rounded text-sm text-gray-700 hover:bg-gray-50"
+          >Импорт</a
+        >
+      </div>
+    </div>
+  </div>
+
+  <!-- Recent transactions + Goals -->
+  <div class="col-span-1 sm:col-span-2 lg:col-span-1">
+    <div class="bg-white rounded-2xl shadow-sm p-4 flex flex-col h-full">
+      <div class="flex items-center justify-between">
+        <h3 class="text-sm font-semibold text-gray-700">
+          Последние транзакции
+        </h3>
+        <a
+          href="{% url 'finances:transactions' %}"
+          class="text-xs text-indigo-600 hover:underline"
+          >Все →</a
+        >
+      </div>
+
+      <div class="mt-3 overflow-auto">
+        {% if recent_transactions %}
+        <table class="min-w-full text-sm">
+          <thead class="text-xs text-gray-500">
+            <tr>
+              <th class="text-left py-2">Дата</th>
+              <th class="text-left py-2">Счёт</th>
+              <th class="text-right py-2">Сумма</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y">
+            {% for tx in recent_transactions|slice:":8" %}
+            <tr class="hover:bg-gray-50">
+              <td class="py-2 text-gray-600">{{ tx.date }}</td>
+              <td class="py-2 text-gray-800">
+                {{ tx.account_name }}{% if tx.category %} ·
+                <span class="text-gray-500">{{ tx.category }}</span>{% endif %}
+              </td>
+              <td
+                class="py-2 text-right {% if tx.type == 'expense' %}text-red-600{% else %}text-green-600{% endif %}"
+              >
+                {{ tx.amount }}{% if currency %} {{ currency }}{% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        {% else %}
+        <div class="text-sm text-gray-500 py-6 text-center">
+          Транзакции отсутствуют. Добавьте первую транзакцию.
+        </div>
+        {% endif %}
+      </div>
+
+      {% if goals %}
+      <div class="mt-4">
+        <h4 class="text-xs text-gray-500">Цели</h4>
+        <div class="mt-2 space-y-3">
+          {% for g in goals %}
+          <div>
+            <div class="flex items-center justify-between text-sm">
+              <div class="font-medium text-gray-800">{{ g.title }}</div>
+              <div class="text-xs text-gray-500">
+                {{ g.current_amount|default:"0" }} / {{ g.target_amount }}
+              </div>
+            </div>
+            <div class="mt-2 h-2 bg-gray-100 rounded-full overflow-hidden">
+              <div
+                class="h-2 rounded-full"
+                style="width: {{ g.progress_percent|default:0 }}%; background: linear-gradient(90deg, #06b6d4, #7c3aed);"
+              ></div>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+</div>

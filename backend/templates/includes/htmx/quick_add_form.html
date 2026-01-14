@@ -1,0 +1,153 @@
+{# backend/templates/includes/htmx/quick_add_form.html #}
+{#
+  HTMX "quick add" form snippet.
+  Expected context variables (recommended, but optional fallbacks exist):
+    - action: URL to POST the form to (required)
+    - form_id: HTML id for the wrapper (default: "quick-add-form")
+    - title: form title (default: "Быстрое добавление")
+    - submit_label: label for submit button (default: "Сохранить")
+    - accounts: iterable of account objects with .id and .name (optional)
+    - categories: iterable of category objects with .id and .name (optional)
+    - today: default date string (YYYY-MM-DD) (optional)
+    - initial: dict with initial values (optional, e.g. initial.amount)
+#}
+
+{% load i18n %}
+
+{% with fid=form_id|default:"quick-add-form" %}
+<div id="{{ fid }}" class="bg-white border rounded-lg shadow-sm p-4 max-w-xl mx-auto">
+  <div class="flex items-start justify-between mb-3">
+    <h3 class="text-lg font-semibold">{{ title|default:"Быстрое добавление" }}</h3>
+    <button
+      type="button"
+      class="text-gray-500 hover:text-gray-700"
+      aria-label="Закрыть"
+      onclick="document.getElementById('{{ fid }}')?.remove();"
+    >&times;</button>
+  </div>
+
+  {# Area for server-side validation messages returned in fragment #}
+  {% if errors %}
+    <div class="mb-3 bg-red-50 border border-red-200 text-red-800 p-2 rounded text-sm">
+      <strong>{% trans "Ошибки:" %}</strong>
+      <ul class="list-disc list-inside mt-1">
+        {% for err in errors %}
+          <li>{{ err }}</li>
+        {% endfor %}
+      </ul>
+    </div>
+  {% endif %}
+
+  <form
+    id="{{ fid }}-form"
+    method="post"
+    enctype="multipart/form-data"
+    hx-post="{{ action }}"
+    hx-target="#{{ fid }}"
+    hx-swap="outerHTML"
+    class="space-y-3"
+  >
+    {% csrf_token %}
+
+    <div class="grid grid-cols-2 gap-3">
+      <div>
+        <label class="block text-xs text-gray-600 mb-1">Сумма</label>
+        <input
+          name="amount"
+          type="number"
+          step="0.01"
+          inputmode="decimal"
+          required
+          value="{{ initial.amount|default:'' }}"
+          class="w-full border rounded px-3 py-2 text-sm"
+          placeholder="0.00"
+        />
+      </div>
+
+      <div>
+        <label class="block text-xs text-gray-600 mb-1">Дата</label>
+        <input
+          name="date"
+          type="date"
+          required
+          value="{{ initial.date|default:today|default:'' }}"
+          class="w-full border rounded px-3 py-2 text-sm"
+        />
+      </div>
+    </div>
+
+    <div class="grid grid-cols-2 gap-3">
+      <div>
+        <label class="block text-xs text-gray-600 mb-1">Счёт</label>
+        <select name="account" class="w-full border rounded px-3 py-2 text-sm">
+          <option value="">{% trans "Выберите счёт" %}</option>
+          {% for a in accounts|default:[] %}
+            <option value="{{ a.id }}" {% if initial.account and initial.account == a.id %}selected{% endif %}>{{ a.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div>
+        <label class="block text-xs text-gray-600 mb-1">Категория</label>
+        <select name="category" class="w-full border rounded px-3 py-2 text-sm">
+          <option value="">{% trans "Выберите категорию" %}</option>
+          {% for c in categories|default:[] %}
+            <option value="{{ c.id }}" {% if initial.category and initial.category == c.id %}selected{% endif %}>{{ c.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-2 gap-3">
+      <div>
+        <label class="block text-xs text-gray-600 mb-1">Тип</label>
+        <select name="type" class="w-full border rounded px-3 py-2 text-sm">
+          <option value="expense" {% if initial.type == "expense" %}selected{% endif %}>{% trans "Расход" %}</option>
+          <option value="income" {% if initial.type == "income" %}selected{% endif %}>{% trans "Доход" %}</option>
+          <option value="transfer" {% if initial.type == "transfer" %}selected{% endif %}>{% trans "Перевод" %}</option>
+        </select>
+      </div>
+
+      <div>
+        <label class="block text-xs text-gray-600 mb-1">Валюта</label>
+        <input name="currency" type="text" value="{{ initial.currency|default:'' }}" placeholder="USD / EUR / RUB" class="w-full border rounded px-3 py-2 text-sm" />
+      </div>
+    </div>
+
+    <div>
+      <label class="block text-xs text-gray-600 mb-1">Описание / контрагент</label>
+      <input name="description" type="text" value="{{ initial.description|default:'' }}" class="w-full border rounded px-3 py-2 text-sm" placeholder="Кафе, зарплата, перевод ..." />
+    </div>
+
+    <div>
+      <label class="block text-xs text-gray-600 mb-1">Файл (опционально)</label>
+      <input name="attachment" type="file" accept=".pdf,image/*" class="w-full text-sm" />
+      <p class="text-xs text-gray-400 mt-1">Поддерживаются: jpg, png, pdf. Макс 10 MB (серверная проверка обязательна).</p>
+    </div>
+
+    {# Optional hidden control to instruct backend how to respond (e.g., close modal) #}
+    <input type="hidden" name="htmx" value="quick_add" />
+
+    <div class="flex items-center gap-3 pt-2">
+      <button
+        type="submit"
+        class="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 text-sm"
+      >
+        {{ submit_label|default:"Сохранить" }}
+      </button>
+
+      <button
+        type="button"
+        class="px-3 py-2 border rounded text-sm text-gray-700 hover:bg-gray-50"
+        onclick="document.getElementById('{{ fid }}')?.remove();"
+      >
+        Отмена
+      </button>
+
+      <div class="ml-auto text-xs text-gray-500">
+        <span class="italic">Отправка через HTMX</span>
+      </div>
+    </div>
+  </form>
+</div>
+{% endwith %}

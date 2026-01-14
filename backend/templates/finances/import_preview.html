@@ -1,0 +1,247 @@
+{# backend/templates/finances/import_preview.html #} {# Фрагмент превью импорта
+CSV. Ожидаемые переменные в контексте (рекомендации): - columns: list of column
+names detected in CSV - preview_rows: list of dicts (first N строк) {col_name:
+value} - mapping_suggestions: dict column -> suggested_field (optional) -
+errors: list of error messages (optional) - duplicate_count: int (optional) -
+total_rows: int (optional) - delimiter, has_header (optional; used to re-submit
+if needed) #}
+
+<div class="space-y-4">
+  <div class="flex items-start justify-between">
+    <div>
+      <h2 class="text-lg font-semibold">Превью импорта</h2>
+      <p class="text-sm text-gray-500">
+        Проверьте сопоставление колонок и строки превью перед импортом.
+      </p>
+    </div>
+
+    <div class="text-sm text-right">
+      <p class="text-gray-600">
+        Строк в файле:
+        <strong>{{ total_rows|default:preview_rows|length }}</strong>
+      </p>
+      {% if duplicate_count %}
+      <p class="text-yellow-600">
+        Найдено возможных дубликатов: <strong>{{ duplicate_count }}</strong>
+      </p>
+      {% endif %}
+    </div>
+  </div>
+
+  {% if errors %}
+  <div class="bg-red-50 border border-red-200 rounded p-3 text-sm text-red-800">
+    <strong>Ошибки при разборе:</strong>
+    <ul class="list-disc list-inside mt-2">
+      {% for e in errors %}
+      <li>{{ e }}</li>
+      {% endfor %}
+    </ul>
+    <p class="mt-2 text-xs text-red-600">
+      Исправьте файл или настройки (разделитель, header) и попробуйте снова.
+    </p>
+  </div>
+  {% endif %}
+
+  <div class="bg-white border rounded-lg shadow-sm p-4">
+    <form
+      id="import-mapping-form"
+      method="post"
+      action="{% url 'finances:import_run' %}"
+    >
+      {% csrf_token %} {# Передаём технические параметры, если они присутствуют
+      #}
+      <input type="hidden" name="preview_confirm" value="1" />
+      {% if delimiter %}<input
+        type="hidden"
+        name="delimiter"
+        value="{{ delimiter }}"
+      />{% endif %} {% if has_header is not None %}<input
+        type="hidden"
+        name="has_header"
+        value="{{ has_header }}"
+      />{% endif %} {# Список колонок (скроем их в виде повторяющихся полей,
+      чтобы сервер сохранил порядок) #} {% for col in columns %}
+      <input type="hidden" name="mapping_cols" value="{{ col }}" />
+      {% endfor %}
+
+      <div class="mb-4">
+        <h3 class="text-sm font-medium mb-2">Сопоставление колонок</h3>
+        <p class="text-xs text-gray-500 mb-3">
+          Укажите, какие колонки соответствуют стандартным полям. Предложение
+          основано на анализе заголовка/значений.
+        </p>
+
+        <div class="grid grid-cols-1 gap-3">
+          {% for col in columns %}
+          <div class="flex items-center gap-3">
+            <div class="w-56">
+              <label class="block text-xs text-gray-600">{{ col }}</label>
+              <input
+                type="text"
+                value="{{ mapping_suggestions[col]|default_if_none:'' }}"
+                readonly
+                class="mt-1 block w-full bg-gray-50 border rounded px-2 py-1 text-sm text-gray-700"
+              />
+            </div>
+
+            <div class="flex-1">
+              <label class="block text-xs text-gray-600">Сопоставить как</label>
+              <select
+                name="mapping_{{ forloop.counter0 }}"
+                class="mt-1 block w-full border rounded py-1 px-2 text-sm"
+              >
+                <option value="ignore">-- игнорировать --</option>
+                <option value="date">date (дата)</option>
+                <option value="amount">amount (сумма)</option>
+                <option value="currency">currency (валюта)</option>
+                <option value="account">account (счёт)</option>
+                <option value="type">
+                  type (тип: income/expense/transfer)
+                </option>
+                <option value="category">category</option>
+                <option value="counterparty">counterparty</option>
+                <option value="description">description</option>
+                <option value="tags">tags</option>
+                <option value="transfer_target">transfer_target</option>
+                <option value="exchange_rate">exchange_rate</option>
+              </select>
+            </div>
+          </div>
+          {% empty %}
+          <p class="text-sm text-gray-500">
+            Колонки не обнаружены — проверьте файл и настройки.
+          </p>
+          {% endfor %}
+        </div>
+      </div>
+
+      <div class="mb-4">
+        <h3 class="text-sm font-medium mb-2">
+          Превью строк (первые {{ preview_rows|length|default:0 }})
+        </h3>
+
+        <div class="overflow-x-auto border rounded">
+          <table class="min-w-full text-sm">
+            <thead class="bg-gray-50 text-left">
+              <tr>
+                <th class="p-2">
+                  <input type="checkbox" id="select-all-rows" />
+                </th>
+                {% for col in columns %}
+                <th class="p-2 font-medium text-gray-700">{{ col }}</th>
+                {% endfor %}
+              </tr>
+            </thead>
+            <tbody>
+              {% for row in preview_rows %}
+              <tr class="border-t">
+                <td class="p-2 align-top">
+                  <input
+                    type="checkbox"
+                    name="include_row_{{ forloop.counter0 }}"
+                    value="1"
+                    checked
+                  />
+                </td>
+                {% for col in columns %}
+                <td class="p-2 align-top whitespace-nowrap">
+                  <div
+                    class="max-w-xs truncate"
+                    title="{{ row[col]|default:'' }}"
+                  >
+                    {{ row[col]|default:'' }}
+                  </div>
+                  <input
+                    type="hidden"
+                    name="row_{{ forloop.parentloop.counter0 }}_col_{{ forloop.counter0 }}"
+                    value="{{ row[col]|default:'' }}"
+                  />
+                </td>
+                {% endfor %}
+              </tr>
+              {% empty %}
+              <tr>
+                <td
+                  class="p-4 text-gray-500"
+                  colspan="{{ columns|length|add:'1' }}"
+                >
+                  Нет доступных строк для превью.
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+
+        <p class="text-xs text-gray-500 mt-2">
+          Если нужно — снимите галочки у строк, которые не нужно импортировать.
+        </p>
+      </div>
+
+      <div class="flex items-center gap-3">
+        <button
+          type="submit"
+          class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
+        >
+          Выполнить импорт (импортировать выбранные строки)
+        </button>
+
+        <button
+          type="button"
+          class="px-4 py-2 bg-gray-100 text-gray-800 rounded hover:bg-gray-200"
+          onclick="document.getElementById('import-mapping-form').reset();"
+        >
+          Сбросить сопоставления
+        </button>
+
+        <button
+          type="button"
+          class="ml-auto px-3 py-2 text-sm border rounded text-indigo-600 hover:bg-indigo-50"
+          onclick="document.getElementById('preview-area').innerHTML = '<p class=&quot;text-sm text-gray-500&quot;>Превью очищено.</p>';"
+        >
+          Закрыть превью
+        </button>
+      </div>
+    </form>
+  </div>
+
+  <div class="bg-white border rounded p-4 text-sm text-gray-700">
+    <h4 class="font-medium mb-2">Итог анализа файла</h4>
+    <ul class="list-disc list-inside space-y-1">
+      <li>Колонок обнаружено: <strong>{{ columns|length }}</strong></li>
+      <li>
+        Строк для импорта (включая превью):
+        <strong>{{ total_rows|default:preview_rows|length }}</strong>
+      </li>
+      {% if duplicate_count %}
+      <li class="text-yellow-700">
+        Возможные дубликаты: <strong>{{ duplicate_count }}</strong>.
+        Рекомендуется включить опцию "Пропускать дубликаты".
+      </li>
+      {% endif %} {% if errors %}
+      <li class="text-red-700">
+        Есть ошибки при разборе — проверьте лог выше.
+      </li>
+      {% else %}
+      <li class="text-green-700">
+        Файл распарсен успешно — можно выполнить импорт.
+      </li>
+      {% endif %}
+    </ul>
+  </div>
+</div>
+
+<script>
+  // Простая логика: toggle select all checkboxes в превью
+  (function () {
+    const selectAll = document.getElementById("select-all-rows");
+    if (!selectAll) return;
+    selectAll.addEventListener("change", function () {
+      const form = document.getElementById("import-mapping-form");
+      const inputs = form.querySelectorAll(
+        'input[type="checkbox"][name^="include_row_"]'
+      );
+      inputs.forEach((i) => (i.checked = selectAll.checked));
+    });
+  })();
+</script>

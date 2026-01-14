@@ -1,0 +1,16 @@
+{
+  "name": "finassist-assets",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Frontend asset build scripts for FinAssist (Tailwind CSS)",
+  "scripts": {
+    "build:css": "tailwindcss -i ./backend/templates/static/css/tailwind.css -o ./backend/templates/static/css/tailwind.build.css --minify",
+    "dev:css": "tailwindcss -i ./backend/templates/static/css/tailwind.css -o ./backend/templates/static/css/tailwind.build.css --watch"
+  },
+  "devDependencies": {
+    "tailwindcss": "^3.4.0",
+    "postcss": "^8.4.0",
+    "autoprefixer": "^10.4.0"
+  },
+  "license": "MIT"
+}

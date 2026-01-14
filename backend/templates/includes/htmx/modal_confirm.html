@@ -1,0 +1,115 @@
+{# backend/templates/includes/htmx/modal_confirm.html #} {# Универсальный
+подтверждающий модальный фрагмент для HTMX. Ожидаемые контекстные переменные
+(рекомендуется): - modal_id : уникальный id контейнера (default:
+"confirm-modal") - title : заголовок модального окна (default: "Подтвердите
+действие") - message : основное сообщение/вопрос пользователю (default: краткое
+предупреждение) - action : URL для отправки подтверждения (required для
+отправки) - method : HTTP-метод для HTMX (post/delete/put) (default: post) -
+confirm_label : текст кнопки подтверждения (default: "Подтвердить") -
+cancel_label : текст кнопки отмены (default: "Отмена") - swap_target :
+CSS-селектор для hx-target (default: "#" + modal_id) - extra_inputs : dict или
+list of tuples для добавления скрытых полей (optional) - close_on_success : если
+true — закрыть модал (backend должен вернуть пустой fragment или соответствующий
+HTML) #} {% with modal_id=modal_id|default:"confirm-modal" %}
+<div
+  id="{{ modal_id }}"
+  class="fixed inset-0 z-50 flex items-center justify-center"
+  aria-labelledby="{{ modal_id }}-title"
+  role="dialog"
+  aria-modal="true"
+>
+  <!-- Backdrop -->
+  <div
+    class="fixed inset-0 bg-black/50 backdrop-blur-sm"
+    hx-trigger="click"
+    onclick="document.getElementById('{{ modal_id }}')?.remove()"
+    aria-hidden="true"
+  ></div>
+
+  <!-- Modal panel -->
+  <div class="relative bg-white rounded-lg shadow-xl max-w-md w-full mx-4 z-10">
+    <div class="flex items-start justify-between px-4 py-3 border-b">
+      <h3 id="{{ modal_id }}-title" class="text-lg font-semibold">
+        {{ title|default:"Подтвердите действие" }}
+      </h3>
+      <button
+        type="button"
+        class="text-gray-500 hover:text-gray-700"
+        aria-label="Закрыть"
+        onclick="document.getElementById('{{ modal_id }}')?.remove();"
+      >
+        &times;
+      </button>
+    </div>
+
+    <div class="px-4 py-4">
+      <p class="text-sm text-gray-700">
+        {% if message %} {{ message }} {% else %} Вы уверены, что хотите
+        продолжить? Это действие нельзя будет отменить. {% endif %}
+      </p>
+    </div>
+
+    <div class="px-4 py-3 border-t flex items-center gap-3">
+      <form
+        id="{{ modal_id }}-form"
+        method="post"
+        hx-post="{{ action }}"
+        hx-swap="outerHTML"
+        hx-target="{{ swap_target|default:'#'|add:modal_id }}"
+        class="flex items-center gap-3 w-full"
+      >
+        {% csrf_token %} {# метод-оверрайд (если нужно отправлять DELETE/PUT
+        через POST) #} {% if method %} {% if method|lower != "post" %}
+        <input type="hidden" name="_method" value="{{ method|upper }}" />
+        {% endif %} {% endif %} {# Дополнительные скрытые поля, если переданы #}
+        {% if extra_inputs %} {% if extra_inputs.items %} {# dict-like #} {% for
+        name, val in extra_inputs.items %}
+        <input type="hidden" name="{{ name }}" value="{{ val }}" />
+        {% endfor %} {% else %} {# list-like of tuples #} {% for pair in
+        extra_inputs %}
+        <input type="hidden" name="{{ pair.0 }}" value="{{ pair.1 }}" />
+        {% endfor %} {% endif %} {% endif %}
+
+        <button
+          type="submit"
+          class="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 text-sm"
+        >
+          {{ confirm_label|default:"Подтвердить" }}
+        </button>
+
+        <button
+          type="button"
+          class="px-3 py-2 border rounded text-sm text-gray-700 hover:bg-gray-50"
+          onclick="document.getElementById('{{ modal_id }}')?.remove();"
+        >
+          {{ cancel_label|default:"Отмена" }}
+        </button>
+
+        <div class="ml-auto text-xs text-gray-400">
+          <span>Нажмите Esc для закрытия</span>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      const modal = document.getElementById("{{ modal_id }}");
+      if (!modal) return;
+      // Закрытие по Esc
+      function onKey(e) {
+        if (e.key === "Escape") modal.remove();
+      }
+      document.addEventListener("keydown", onKey);
+      // Очистим слушатель когда модал удалён
+      const observer = new MutationObserver(() => {
+        if (!document.body.contains(modal)) {
+          document.removeEventListener("keydown", onKey);
+          observer.disconnect();
+        }
+      });
+      observer.observe(document.body, { childList: true, subtree: true });
+    })();
+  </script>
+</div>
+{% endwith %}

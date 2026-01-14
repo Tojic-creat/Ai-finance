@@ -1,0 +1,187 @@
+{# backend/templates/includes/partials/transaction_list_item.html #} {#
+Ожидаемые переменные в контексте: - transaction: объект/словарь с полями id,
+date, account_name, amount, currency, type ('income'|'expense'|'transfer'),
+category, counterparty, tags (iterable), privacy ('full'|'masked'|'hidden'),
+description, is_proposed (bool) — категория предложена ИИ/правилом -
+show_actions (bool) — показывать кнопки действий (редактировать/удалить) -
+edit_url, detail_url, revert_url, receipt_url — опциональные URL'ы #}
+
+<tr id="tx-{{ transaction.id }}" class="hover:bg-gray-50">
+  <td class="px-3 py-2 align-top text-sm text-gray-600 whitespace-nowrap">
+    <div class="text-sm">{{ transaction.date }}</div>
+    <div class="text-xs text-gray-400">{{ transaction.account_name }}</div>
+  </td>
+
+  <td class="px-3 py-2 align-top text-sm">
+    <div class="flex items-center gap-2">
+      {# Icon by type #} {% if transaction.type == 'income' %}
+      <svg
+        class="w-5 h-5 text-green-500"
+        viewBox="0 0 24 24"
+        fill="none"
+        aria-hidden="true"
+      >
+        <path
+          d="M12 5v14"
+          stroke="currentColor"
+          stroke-width="1.5"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        />
+        <path
+          d="M19 12l-7 7-7-7"
+          stroke="currentColor"
+          stroke-width="1.5"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        />
+      </svg>
+      {% elif transaction.type == 'expense' %}
+      <svg
+        class="w-5 h-5 text-red-500"
+        viewBox="0 0 24 24"
+        fill="none"
+        aria-hidden="true"
+      >
+        <path
+          d="M12 19V5"
+          stroke="currentColor"
+          stroke-width="1.5"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        />
+        <path
+          d="M5 12l7-7 7 7"
+          stroke="currentColor"
+          stroke-width="1.5"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        />
+      </svg>
+      {% else %}
+      <svg
+        class="w-5 h-5 text-indigo-500"
+        viewBox="0 0 24 24"
+        fill="none"
+        aria-hidden="true"
+      >
+        <path
+          d="M21 12.79A9 9 0 1111.21 3"
+          stroke="currentColor"
+          stroke-width="1.5"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        />
+        <path
+          d="M22 12h-8"
+          stroke="currentColor"
+          stroke-width="1.5"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        />
+      </svg>
+      {% endif %}
+
+      <div class="min-w-0">
+        {# Privacy handling: masked/hidden/full #} {% if transaction.privacy ==
+        'hidden' %}
+        <div class="text-sm font-medium text-gray-700">Скрыто</div>
+        {% else %}
+        <div class="text-sm font-medium text-gray-800 truncate">
+          {% if transaction.counterparty %}{{ transaction.counterparty }}{% else
+          %}—{% endif %} {% if transaction.description %}
+          <span class="text-xs text-gray-400"
+            >· {{ transaction.description }}</span
+          >
+          {% endif %}
+        </div>
+
+        <div class="text-xs text-gray-500">
+          {% if transaction.privacy == 'masked' %}
+          <span
+            >Категория: {% if transaction.category %}{{ transaction.category
+            }}{% else %}предложена{% endif %} (маскировано)</span
+          >
+          {% else %}
+          <span
+            >Категория: {% if transaction.category %}{{ transaction.category
+            }}{% else %}<em>не указана</em>{% endif %}</span
+          >
+          {% endif %}
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </td>
+
+  <td class="px-3 py-2 align-top text-right whitespace-nowrap">
+    {# Amount and currency #}
+    <div
+      class="text-sm font-semibold {% if transaction.type == 'expense' %}text-red-600{% elif transaction.type == 'income' %}text-green-600{% else %}text-indigo-600{% endif %}"
+    >
+      {% if transaction.privacy == 'hidden' %} — {% elif transaction.privacy ==
+      'masked' %} {{ transaction.amount|floatformat:2|slice:":1" }}*** {{
+      transaction.currency|default:"" }} {# simple mask: show masked amount;
+      real app would mask differently #} {% else %} {{
+      transaction.amount|floatformat:2 }} {{ transaction.currency|default:"" }}
+      {% endif %}
+    </div>
+
+    {# Tags and small meta #}
+    <div class="text-xs text-gray-400 mt-1">
+      {% if transaction.tags %} {% for t in transaction.tags|slice:":3" %}
+      <span class="inline-block px-2 py-0.5 mr-1 rounded-full border text-xs"
+        >{{ t }}</span
+      >
+      {% endfor %} {% if transaction.tags|length > 3 %}…{% endif %} {% else %}
+      &nbsp; {% endif %}
+    </div>
+  </td>
+
+  <td class="px-3 py-2 align-top text-sm text-right whitespace-nowrap">
+    <div class="flex items-center justify-end gap-2">
+      {% if transaction.is_proposed %}
+      <span class="text-xs text-yellow-600 border rounded px-2 py-0.5"
+        >Предложено</span
+      >
+      {% endif %} {% if receipt_url %}
+      <a
+        href="{{ receipt_url }}"
+        class="text-xs text-gray-500 hover:underline"
+        title="Квитанция"
+      >
+        Квитанция
+      </a>
+      {% endif %} {% if show_actions %}
+      <div class="flex items-center gap-1">
+        {% if edit_url %}
+        <a
+          href="{{ edit_url }}"
+          class="inline-flex items-center px-2 py-1 border rounded text-xs hover:bg-gray-50"
+          title="Редактировать"
+        >
+          Ред.
+        </a>
+        {% endif %} {% if revert_url %}
+        <button
+          hx-post="{{ revert_url }}"
+          hx-confirm="Откатить корректировку / транзакцию?"
+          hx-swap="outerHTML"
+          class="inline-flex items-center px-2 py-1 border rounded text-xs text-red-600 hover:bg-red-50"
+          title="Откатить / Revert"
+        >
+          Откат
+        </button>
+        {% endif %} {% if detail_url %}
+        <a
+          href="{{ detail_url }}"
+          class="inline-flex items-center px-2 py-1 border rounded text-xs text-gray-600 hover:bg-gray-50"
+          title="Детали"
+          >→</a
+        >
+        {% endif %}
+      </div>
+      {% endif %}
+    </div>
+  </td>
+</tr>

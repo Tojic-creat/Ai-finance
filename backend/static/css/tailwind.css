@@ -1,0 +1,146 @@
+/* backend/templates/static/css/tailwind.css
+   Минимальный входной файл для Tailwind CSS.
+   Ожидается, что tailwind будет собираться через PostCSS / Tailwind CLI / build pipeline.
+   Здесь подключаем директивы и добавляем несколько удобных компонент/утилит для проекта.
+*/
+
+/* === Tailwind core layers === */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* === Базовые переопределения (preflight-friendly) === */
+@layer base {
+  /* Устанавливаем удобный системный стек шрифтов; проект предполагает Inter/Tailwind UI */
+  html,
+  body {
+    font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI",
+      Roboto, "Helvetica Neue", Arial, "Noto Sans", "Apple Color Emoji",
+      "Segoe UI Emoji", "Segoe UI Symbol";
+    background-color: #f8fafc; /* light gray bg by default */
+    color: #0f172a; /* slate-900 */
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    line-height: 1.4;
+  }
+
+  /* Снижение контраста ссылок по умолчанию (будут окрашены через утилиты) */
+  a {
+    text-decoration: none;
+  }
+
+  /* Стили для контейнера приложения */
+  .app-root {
+    @apply min-h-screen;
+  }
+}
+
+/* === Компоненты проекта: кнопки, карты, формы === */
+@layer components {
+  /* Базовая кнопка */
+  .btn {
+    @apply inline-flex items-center justify-center px-4 py-2 rounded-2xl font-medium shadow-sm
+           transition-colors duration-150 ease-in-out;
+  }
+
+  .btn-primary {
+    @apply btn bg-indigo-600 text-white hover:bg-indigo-700 focus:ring-2 focus:ring-indigo-300;
+  }
+
+  .btn-ghost {
+    @apply btn bg-transparent border border-gray-200 text-gray-700 hover:bg-gray-50;
+  }
+
+  /* Карточка */
+  .card {
+    @apply bg-white rounded-2xl p-4 shadow-sm;
+  }
+
+  /* Форма / input */
+  .form-input {
+    @apply block w-full rounded-lg border border-gray-200 bg-white px-3 py-2 placeholder-gray-400
+           focus:outline-none focus:ring-2 focus:ring-indigo-200;
+  }
+
+  .form-label {
+    @apply block text-sm font-medium text-gray-700 mb-1;
+  }
+
+  /* Малый помощник (подсказка под полем) */
+  .field-help {
+    @apply text-xs text-gray-500 mt-1;
+  }
+
+  /* Приложение хедера / навигации */
+  .site-header {
+    @apply bg-white border-b border-gray-100;
+  }
+
+  .site-nav {
+    @apply flex items-center gap-3;
+  }
+
+  /* Удобная карточка аккаунта */
+  .account-card {
+    @apply card flex items-center justify-between gap-4;
+  }
+
+  /* Малые бейджи */
+  .tag {
+    @apply inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border;
+  }
+
+  .tag-muted {
+    @apply tag text-gray-600 border-gray-100 bg-gray-50;
+  }
+  .tag-success {
+    @apply tag text-green-700 border-green-100 bg-green-50;
+  }
+}
+
+/* === Дополнительные утилиты, которые удобно иметь в проекте === */
+@layer utilities {
+  /* Очень маленький текст */
+  .text-xxs {
+    font-size: 0.65rem;
+  }
+
+  /* Ограниченный контейнер: используется в шаблонах */
+  .w-container {
+    max-width: 1100px;
+    margin-left: auto;
+    margin-right: auto;
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+
+  /* Простая утилита-маска для сумм (визуальный эффект, не безопасность) */
+  .mask-amount {
+    letter-spacing: 0.06em;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Скрытие по визуальной доступности (вместо display:none) */
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+    border-width: 0;
+  }
+}
+
+/* === Несколько полезных небольших правил для шаблонов === */
+.header-brand {
+  @apply text-xl font-semibold tracking-tight;
+}
+
+.footer {
+  @apply text-sm text-gray-500;
+}
+
+/* Конец файла */
