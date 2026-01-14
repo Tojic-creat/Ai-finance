@@ -1,0 +1,12 @@
+date,amount,currency,description,account,to_account,category,transaction_type,merchant,tags,reference,file
+2025-01-01,1000.00,USD,Salary Jan,Checking,,Income,income,ACME Inc.,"salary;monthly",ref-001,
+2025-01-02,-3.50,USD,Coffee,Checking,,Food,expense,Starbucks,coffee,ref-002,
+2025-01-02,-3.50,USD,Coffee,Checking,,Food,expense,Starbucks,coffee,ref-002,  # duplicate (same reference) to test duplicate detection
+2025-01-03,-72.15,USD,"Grocery shopping",Checking,,Groceries,expense,WholeFoods,grocery,ref-003,receipt_001.pdf
+2025-01-05,-200.00,USD,"Transfer to savings",Checking,Savings,,transfer,Internal Transfer,transfer,ref-004,
+2025-01-06,500.00,EUR,Freelance payout,EUR_Account,,Income,income,"Client GmbH",freelance,ref-005,
+2025-01-07,"12,34",USD,"Invalid amount with comma",Checking,,Misc,expense,Shop,,ref-006,      # intentionally malformed amount (comma) to test validation
+2025-01-08,-0.99,USD,Micropayment,Checking,,Subscription,expense,App Store,app,ref-007,
+2025-01-10,1500000.00,USD,House downpayment,Savings,,Transfer,expense,RealEstate,downpayment,ref-008,
+2025-01-11,-45.00,USD,Taxi,CreditCard,,Transport,expense,Uber,taxi,ref-009,receipt_002.jpg
+2025-01-12,50,,Tip,Checking,,Tip,expense,Restaurant,tip,ref-010,                       # missing currency to test defaulting/validation
