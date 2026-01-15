@@ -17,6 +17,13 @@ from django.http import JsonResponse
 from django.urls import include, path, re_path
 from django.views.generic import TemplateView
 
+# Import the UI view we added (defensive import)
+try:
+    from apps.finances import views as finances_views  # noqa: WPS433
+except Exception:
+    finances_views = None
+
+
 def health_check(request):
     """
     Basic health check used by uptime monitors / load balancers.
@@ -50,7 +57,12 @@ urlpatterns = [
     path("admin/", admin.site.urls),
     path("health/", health_check, name="health"),
 
-    # Root: render landing page (index.html). Put your landing template at backend/templates/index.html
+    # Dashboard (UI) - if the view is available
+    # Access: /dashboard/ (named 'dashboard' — used by base.html)
+    path("dashboard/", (finances_views.dashboard if finances_views is not None else TemplateView.as_view(
+        template_name="index.html")), name="dashboard"),
+
+    # Root: render landing page (index.html)
     path("", TemplateView.as_view(template_name="index.html"), name="home"),
 
     # Keep a simple public entry point for the web UI (JSON placeholder)
@@ -82,9 +94,12 @@ if settings.DEBUG or getattr(settings, "ENABLE_API_DOCS", False):
         )
 
         urlpatterns += [
-            re_path(r"^swagger(?P<format>\.json|\.yaml)$", schema_view.without_ui(cache_timeout=0), name="schema-json"),
-            path("swagger/", schema_view.with_ui("swagger", cache_timeout=0), name="schema-swagger-ui"),
-            path("redoc/", schema_view.with_ui("redoc", cache_timeout=0), name="schema-redoc"),
+            re_path(r"^swagger(?P<format>\.json|\.yaml)$", schema_view.without_ui(
+                cache_timeout=0), name="schema-json"),
+            path("swagger/", schema_view.with_ui("swagger",
+                 cache_timeout=0), name="schema-swagger-ui"),
+            path("redoc/", schema_view.with_ui("redoc",
+                 cache_timeout=0), name="schema-redoc"),
         ]
     except Exception:
         # drf-yasg not installed — skip docs silently
@@ -94,5 +109,7 @@ if settings.DEBUG or getattr(settings, "ENABLE_API_DOCS", False):
 if settings.DEBUG:
     from django.conf.urls.static import static
 
-    urlpatterns += static(settings.STATIC_URL, document_root=getattr(settings, "STATIC_ROOT", None))
-    urlpatterns += static(getattr(settings, "MEDIA_URL", "/media/"), document_root=getattr(settings, "MEDIA_ROOT", None))
+    urlpatterns += static(settings.STATIC_URL,
+                          document_root=getattr(settings, "STATIC_ROOT", None))
+    urlpatterns += static(getattr(settings, "MEDIA_URL", "/media/"),
+                          document_root=getattr(settings, "MEDIA_ROOT", None))

@@ -20,6 +20,10 @@ Design notes:
 """
 
 from __future__ import annotations
+from django.db.models import Sum
+from django.contrib.auth.decorators import login_required
+from django.shortcuts import render
+from decimal import Decimal
 
 import csv
 import io
@@ -299,3 +303,117 @@ class AuditLogViewSet(viewsets.ReadOnlyModelViewSet):
 
 
 # End of file
+
+
+# -----------------------------------------------------------------------------
+# Simple HTML dashboard view (UI) — uses same models but does not affect API
+# -----------------------------------------------------------------------------
+
+# NOTE: We import models from same module to avoid circular imports if any.
+# The models module is already referenced above in this file (as 'models').
+try:
+    Account = models.Account  # type: ignore[attr-defined]
+    Transaction = models.Transaction  # type: ignore[attr-defined]
+    Goal = models.Goal  # type: ignore[attr-defined]
+except Exception:
+    Account = Transaction = Goal = None  # defensive fallback
+
+
+@login_required
+def dashboard(request):
+    """
+    Simple HTML dashboard for authenticated users.
+
+    - aggregates cached balances from Account.balance
+    - sums income/expenses for the current month using Transaction.type
+    - collects simple lists for sidebar (accounts) and goals
+
+    This view is intentionally forgiving (works if some models are missing).
+    """
+    user = request.user
+    now = timezone.now()
+
+    # Defaults
+    total_balance = Decimal("0.00")
+    month_income = Decimal("0.00")
+    month_expenses = Decimal("0.00")
+    accounts_list = []
+    goals_list = []
+
+    # Accounts & total balance
+    if Account is not None:
+        qs_accounts = Account.objects.filter(owner=user).order_by("name")
+        total = qs_accounts.aggregate(total=Sum("balance"))["total"]
+        total_balance = total or Decimal("0.00")
+
+        # build minimal accounts list for sidebar
+        for acc in qs_accounts:
+            accounts_list.append(
+                {
+                    "name": acc.name,
+                    "bank": acc.type,  # no explicit bank field in model — use type as placeholder
+                    "balance": acc.balance,
+                    "currency": acc.currency,
+                    # CSS class chosen deterministically for variety
+                    "icon_class": ("icon-blue" if acc.pk % 3 == 0 else "icon-green" if acc.pk % 3 == 1 else "icon-purple"),
+                }
+            )
+
+    # Transactions for current month
+    if Transaction is not None:
+        month_start = now.replace(day=1).date()
+        txs = Transaction.objects.filter(
+            account__owner=user, date__gte=month_start)
+
+        inc = txs.filter(type=Transaction.Type.INCOME).aggregate(
+            sum=Sum("amount"))["sum"]
+        exp = txs.filter(type=Transaction.Type.EXPENSE).aggregate(
+            sum=Sum("amount"))["sum"]
+
+        # Fallback: if amounts stored positive for both, use directly; if expenses negative take abs
+        month_income = inc or Decimal("0.00")
+        month_expenses = exp or Decimal("0.00")
+        try:
+            # ensure non-negative display for expenses
+            if month_expenses < 0:
+                month_expenses = abs(month_expenses)
+        except Exception:
+            pass
+
+        # Additional fallback: if no typed transactions, estimate from sign
+        if (month_income == 0) and (month_expenses == 0):
+            pos_sum = txs.filter(amount__gt=0).aggregate(
+                sum=Sum("amount"))["sum"] or Decimal("0.00")
+            neg_sum = txs.filter(amount__lt=0).aggregate(
+                sum=Sum("amount"))["sum"] or Decimal("0.00")
+            month_income = pos_sum
+            month_expenses = abs(neg_sum)
+
+    # Goals
+    if Goal is not None:
+        goals_qs = Goal.objects.filter(
+            user=user, is_active=True).order_by("-created_at")[:6]
+        for g in goals_qs:
+            goals_list.append(
+                {
+                    "name": g.name,
+                    "target_amount": g.target_amount,
+                    "current_amount": g.current_amount,
+                    "progress": getattr(g, "progress_percent", lambda: Decimal("0.00"))(),
+                }
+            )
+
+    # Choose a currency for display (first account or USD)
+    currency = accounts_list[0]["currency"] if accounts_list and accounts_list[0].get(
+        "currency") else "USD"
+
+    context = {
+        "total_balance": total_balance,
+        "month_income": month_income,
+        "month_expenses": month_expenses,
+        "accounts": accounts_list,
+        "goals": goals_list,
+        "currency": currency,
+        "now": now,
+    }
+    return render(request, "finances/dashboard.html", context)

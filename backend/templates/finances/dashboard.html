@@ -1,0 +1,244 @@
+{# backend/templates/finances/dashboard.html #} {% load static %} {% extends
+"base.html" %} {% block title %} Финансовый обзор — FinAssist {% endblock %} {%
+block head_extra %}
+<link rel="stylesheet" href="{% static 'css/dashboard.css' %}" />
+{% endblock %} {% block header_title %} Финансовый обзор {% endblock %} {% block
+content %}
+<div class="dashboard-root">
+  <div class="layout">
+    <!-- SIDEBAR -->
+    <aside
+      class="sidebar"
+      aria-label="Сайдбар навигации"
+      style="margin-bottom: 16px"
+    >
+      <div class="logo">
+        <i class="fas fa-wallet"></i>
+        <span>Финансовый помощник</span>
+      </div>
+
+      <nav aria-label="Главная навигация">
+        <ul class="nav-menu">
+          <li>
+            <a href="#" class="active"><i class="fas fa-home"></i> Обзор</a>
+          </li>
+          <li>
+            <a href="#"><i class="fas fa-bullseye"></i> Цели</a>
+          </li>
+          <li>
+            <a href="#"><i class="fas fa-chart-pie"></i> Бюджет</a>
+          </li>
+          <li>
+            <a href="#"><i class="fas fa-chart-bar"></i> Отчеты</a>
+          </li>
+          <li>
+            <a href="#"><i class="fas fa-cog"></i> Настройки</a>
+          </li>
+        </ul>
+      </nav>
+
+      <div class="accounts-sidebar" aria-labelledby="accounts-title">
+        <h3 id="accounts-title" style="color: #fff; margin-bottom: 12px">
+          Ваши счета
+        </h3>
+        <ul class="account-list">
+          {% for acc in accounts %}
+          <li class="account-item">
+            <div style="display: flex; align-items: center; gap: 12px">
+              <div class="account-icon {{ acc.icon_class }}">
+                <i class="fas fa-credit-card"></i>
+              </div>
+              <div class="account-details">
+                <div style="font-size: 14px; font-weight: 600">
+                  {{ acc.name }}
+                </div>
+                <div style="font-size: 12px; color: #b0b7c3">
+                  {{ acc.bank }}
+                </div>
+              </div>
+            </div>
+            <div class="account-balance">{{ acc.balance }} {{ currency }}</div>
+          </li>
+          {% empty %}
+          <li class="account-item">
+            Нет счетов — создайте первый через Admin или API
+          </li>
+          {% endfor %}
+        </ul>
+      </div>
+    </aside>
+
+    <!-- MAIN CONTENT -->
+    <main class="main-content" role="main">
+      <!-- METRICS -->
+      <section class="metrics-grid" aria-label="Ключевые метрики">
+        <div class="metric-card" role="region" aria-label="Баланс на счетах">
+          <h3>Баланс на счетах</h3>
+          <div class="metric-value">{{ total_balance }} {{ currency }}</div>
+          <div class="metric-change positive">—</div>
+        </div>
+
+        <div class="metric-card" role="region" aria-label="Расходы">
+          <h3>Расходы в этом месяце</h3>
+          <div class="metric-value">{{ month_expenses }} {{ currency }}</div>
+          <div class="metric-change negative">сравнение недоступно</div>
+        </div>
+
+        <div class="metric-card" role="region" aria-label="Доходы">
+          <h3>Доходы в этом месяце</h3>
+          <div class="metric-value">{{ month_income }} {{ currency }}</div>
+          <div class="metric-change positive">сравнение недоступно</div>
+        </div>
+      </section>
+
+      <!-- MAIN GRID -->
+      <div class="content-grid">
+        <!-- LEFT COLUMN -->
+        <section class="left-column">
+          <div class="chart-container" role="region" aria-label="Динамика">
+            <h2 class="section-title">Динамика доходов и расходов</h2>
+            <div class="chart-placeholder" aria-hidden="true">
+              <div
+                class="chart-line"
+                style="
+                  height: 2px;
+                  background: #1a73e8;
+                  width: 90%;
+                  position: absolute;
+                  bottom: 48px;
+                "
+              ></div>
+              <div class="chart-point point-1"></div>
+              <div class="chart-point point-2"></div>
+              <div class="chart-point point-3"></div>
+              <div class="chart-point point-4"></div>
+              <div class="chart-point point-5"></div>
+              <div class="chart-point point-6"></div>
+            </div>
+
+            <div class="chart-stats" style="margin-top: 16px">
+              <div class="stat-item">
+                <div class="stat-value">—</div>
+                <div class="stat-label">Сбережения за месяц</div>
+              </div>
+              <div class="stat-item">
+                <div class="stat-value">—</div>
+                <div class="stat-label">Использование бюджета</div>
+              </div>
+              <div class="stat-item">
+                <div class="stat-value">—</div>
+                <div class="stat-label">Дней до зарплаты</div>
+              </div>
+            </div>
+          </div>
+
+          <div
+            class="budget-section"
+            style="margin-top: 20px"
+            role="region"
+            aria-label="Категории расходов"
+          >
+            <h2 class="section-title">Расходы по категориям</h2>
+            <ul class="category-list" style="margin-top: 12px">
+              {% for g in goals %}
+              <li class="category-item">
+                <div class="category-info">
+                  <div class="category-icon icon-food">
+                    <i class="fas fa-utensils"></i>
+                  </div>
+                  <div>
+                    <h4>{{ g.name }}</h4>
+                    <span style="font-size: 13px; color: #6c757d"
+                      >Цель: {{ g.target_amount }} {{ currency }}</span
+                    >
+                  </div>
+                </div>
+                <div class="category-progress" style="flex: 1; margin: 0 12px">
+                  <div class="progress-bar">
+                    <div
+                      class="progress-fill"
+                      style="width:{{ g.progress }}%"
+                    ></div>
+                  </div>
+                </div>
+                <div class="category-amount">
+                  {{ g.current_amount }} {{ currency }}
+                </div>
+              </li>
+              {% empty %}
+              <li class="category-item">Нет активных целей</li>
+              {% endfor %}
+            </ul>
+          </div>
+        </section>
+
+        <!-- RIGHT COLUMN -->
+        <aside class="right-column">
+          <div class="notifications" role="region" aria-label="Уведомления">
+            <h2 class="section-title">Уведомления</h2>
+            <ul class="notifications-list" style="margin-top: 12px">
+              <li class="notification-item">
+                <div class="notification-icon icon-warning">
+                  <i class="fas fa-exclamation-triangle"></i>
+                </div>
+                <div class="notification-content">
+                  <h4>Нет уведомлений</h4>
+                  <div class="notification-time">—</div>
+                </div>
+              </li>
+            </ul>
+            <a
+              href="#"
+              class="show-history"
+              style="display: inline-block; margin-top: 12px"
+              >Показать историю уведомлений</a
+            >
+          </div>
+
+          <div
+            class="quick-actions"
+            role="region"
+            aria-label="Быстрые действия"
+            style="margin-top: 16px"
+          >
+            <h2 class="section-title">Быстрые действия</h2>
+            <ul class="actions-list" style="margin-top: 12px">
+              <li><i class="fas fa-plus-circle"></i> Добавить операцию</li>
+              <li><i class="fas fa-exchange-alt"></i> Перевести деньги</li>
+              <li><i class="fas fa-file-invoice"></i> Оплатить счет</li>
+              <li><i class="fas fa-chart-pie"></i> Создать бюджет</li>
+              <li><i class="fas fa-bell"></i> Настроить напоминания</li>
+              <li><i class="fas fa-download"></i> Скачать отчет</li>
+            </ul>
+          </div>
+        </aside>
+      </div>
+
+      <footer style="margin-top: 20px; color: #6c757d; font-size: 13px">
+        Dev build — не для продакшна. Для вопросов/ошибок — смотрите логи
+        контейнера: <code>docker compose logs web</code>
+      </footer>
+    </main>
+  </div>
+</div>
+
+<script>
+  document.addEventListener("DOMContentLoaded", function () {
+    const points = document.querySelectorAll(".chart-point");
+    points.forEach(
+      (p, i) => (p.style.animation = `pulse 2s ${i * 0.25}s infinite alternate`)
+    );
+    if (!document.getElementById("dashboard-pulse-keyframes")) {
+      const st = document.createElement("style");
+      st.id = "dashboard-pulse-keyframes";
+      st.textContent = `@keyframes pulse {0% {transform:scale(1);box-shadow:0 2px 5px rgba(0,0,0,0.12);}100% {transform:scale(1.15);box-shadow:0 6px 18px rgba(26,115,232,0.18);}}`;
+      document.head.appendChild(st);
+    }
+    document
+      .querySelectorAll(".actions-list li")
+      .forEach((item) =>
+        item.addEventListener("click", () => alert(item.textContent.trim()))
+      );
+  });
+</script>
+{% endblock %}
